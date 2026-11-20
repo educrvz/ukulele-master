@@ -1,0 +1,397 @@
+/* Ukulele Master — game loop, views and progress. Progress is stored in this browser only. */
+(function () {
+  const U = window.UKE, { CHORDS, DOSES, ISLANDS } = U;
+  const KEY = 'uke-master-v1';
+  const $ = (q, el) => (el || document).querySelector(q);
+  const $$ = (q, el) => [...(el || document).querySelectorAll(q)];
+
+  let S = { lang: null, onboarded: false, doses: {}, log: [], xp: 0, newOn: null };
+  try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  const T = (en, pt) => (S.lang === 'pt' ? pt : en);
+  const L = (o) => (o ? o[S.lang === 'pt' ? 'pt' : 'en'] : '');
+  const setLang = (l) => { S.lang = l; U.lang = l; document.documentElement.lang = l === 'pt' ? 'pt-BR' : 'en'; save(); };
+  U.lang = S.lang || 'en';
+
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const forced = new URLSearchParams(location.search).get('date');
+  const today = () => forced || iso(new Date());
+  const niceDate = (s) => new Date(s + 'T12:00').toLocaleDateString(S.lang === 'pt' ? 'pt-BR' : 'en-GB', { day: 'numeric', month: 'short' });
+
+  const FINGERS = () => T('1 index · 2 middle · 3 ring. Numbers inside dots are fingers, not frets.', '1 indicador · 2 médio · 3 anelar. Os números nas bolinhas são dedos, não casas.');
+  const LEVELS = [['Beachcomber', 'Catador de conchas'], ['Strummer', 'Batedor'], ['Island hopper', 'Navegante'], ['Groove keeper', 'Guardião do ritmo'], ['Song carrier', 'Cantador'], ['Melody diver', 'Mergulhador da melodia'], ['Blues sailor', 'Marujo do blues'], ['Ukulele master', 'Mestre do ukulele']];
+
+  // ───────── progress model
+  const isDone = (id) => !!S.doses[id];
+  function currentDose() { return DOSES.find((d) => !isDone(d.id)) || U.dailyDose(today()); }
+  const lockedToday = () => S.newOn === today() && !isDone(currentDose().id);
+  const getDose = (id) => DOSES.find((d) => String(d.id) === String(id)) || (String(id).startsWith('daily-') ? U.dailyDose(String(id).slice(6)) : null);
+  function streak() {
+    const days = new Set(S.log.map((e) => e.d));
+    const d = new Date(today() + 'T12:00');
+    if (!days.has(iso(d))) d.setDate(d.getDate() - 1);
+    let n = 0;
+    for (let g = 0; g < 800; g++) {
+      if (days.has(iso(d))) n++;
+      else if (d.getDay() !== 0 && d.getDay() !== 6) break; // a missed weekend does not break the streak
+      else if (!n && g > 3) break;
+      d.setDate(d.getDate() - 1);
+    }
+    return n;
+  }
+  const level = () => Math.min(LEVELS.length - 1, Math.floor(S.xp / 120));
+
+  // ───────── visuals
+  function chordCard(id) {
+    const ch = CHORDS[id];
+    return `<article class="card chord-card"><header><h3>${ch.label}${ch.tag ? ` <small>${L(ch.tag)}</small>` : ''}</h3>
+      <button class="btn ghost sm" data-act="hear" data-id="${id}">▶ ${T('Hear it', 'Ouvir')}</button></header>
+      <div class="pair"><figure>${DG.chordChart(ch)}<figcaption>${T('Where the fingers go', 'Onde vão os dedos')}</figcaption></figure>
+      <figure class="wide">${DG.chordNeck(ch)}<figcaption>${T('Your view while playing, and the note each string sounds', 'Sua visão ao tocar, e a nota que cada corda soa')}</figcaption></figure></div>
+      <p class="sound">${DG.soundLine(ch)}</p></article>`;
+  }
+  const chordName = (id) => `<b>${CHORDS[id].sym}</b><small>(${CHORDS[id].pt})</small>`;
+  const noteAt = ([s, f]) => U.OPEN[s] + f;
+  function notePills(seq, attr) {
+    return `<div class="pills">${seq.map((p, i) => `<span class="pill" ${attr}="${i}" style="--c:${DG.pcColor(noteAt(p))}"><b>${U.noteName(noteAt(p))}</b><small>${T('string', 'corda')} ${U.STR[p[0]]} · ${p[1] ? T('fret', 'casa') + ' ' + p[1] : T('open', 'solta')}</small></span>`).join('')}</div>`;
+  }
+  function renderVis(v) {
+    if (v.t === 'chord') return chordCard(v.id);
+    if (v.t === 'tuning') {
+      const dots = [0, 1, 2, 3].map((s) => ({ s, f: 0, open: true }));
+      const svg = DG.chordNeck({ frets: [0, 0, 0, 0], fingers: [0, 0, 0, 0], midi: U.OPEN, label: 'tuning' });
+      return `<article class="card"><h3>${T('The four open strings', 'As quatro cordas soltas')}</h3><figure class="wide">${svg}<figcaption>${T('The G (Sol) string is thin and sounds higher than the C (Dó) string next to it.', 'A corda G (Sol) é fina e soa mais aguda que a corda C (Dó) ao lado.')}</figcaption></figure></article>`;
+    }
+    if (v.t === 'strum') return `<article class="card"><h3>${T('The strum', 'A batida')}</h3>${DG.strum(v.p, v.beats)}
+      <p class="legend">↓ ${T('down', 'para baixo')} · ↑ ${T('up', 'para cima')} · <span class="faint">↓</span> ${T('the hand passes without touching', 'a mão passa sem tocar')}${v.p.includes('X') ? ' · ✕ ' + T('chuck', 'abafado') : ''}</p></article>`;
+    if (v.t === 'seq') return `<article class="card"><h3>${T('The loop', 'O ciclo')}</h3><div class="seq">${v.chords.map((c, i) => `<div class="box" data-ci="${i}">${chordName(c)}<i>${v.unit ? `${v.per} ${L(v.unit)}` : '×' + v.per}</i></div>`).join('<span class="arr">→</span>')}</div>
+      <div class="mini-row">${[...new Set(v.chords)].map((c) => `<button class="mini" data-act="peek" data-id="${c}">${DG.chordChart(CHORDS[c])}<span>${CHORDS[c].label}</span></button>`).join('')}</div></article>`;
+    if (v.t === 'notes') return `<article class="card"><h3>${T('The notes, in order', 'As notas, em ordem')}</h3>${notePills(v.seq, 'data-ni')}
+      <figure class="wide">${DG.noteMap(v.seq)}<figcaption>${T('Where each note lives. A dot outside the neck, on the left, is an open string.', 'Onde mora cada nota. Bolinha fora do braço, à esquerda, é corda solta.')}</figcaption></figure></article>`;
+    if (v.t === 'song') {
+      const chords = [...new Set(v.bars.map((b) => b[0]))];
+      return `<article class="card"><h3>${T('The song', 'A música')} <small>${v.beats} ${T('strums per box', 'batidas por caixa')}</small></h3>
+        <div class="song" style="--cols:${v.cols || 4}">${v.pickup ? `<div class="bar pickup"><em>${L(v.pickup)}</em></div>` : ''}${v.bars.map((b, i) => `<div class="bar${v.half && v.half.includes(i) ? ' half' : ''}" data-ci="${i}">${chordName(b[0])}<em>${L(b[1])}</em></div>`).join('')}</div>
+        <div class="mini-row">${chords.map((c) => `<button class="mini" data-act="peek" data-id="${c}">${DG.chordChart(CHORDS[c])}<span>${CHORDS[c].label}</span></button>`).join('')}</div></article>`;
+    }
+    return '';
+  }
+
+  // ───────── views
+  let V = { name: 'home' };
+  let chk = null, timerInt = null, timerLeft = 240, bpm = 60, frameN = 0;
+  function go(v) { stopAll(); V = v; render(); window.scrollTo(0, 0); }
+  function stopAll() {
+    Player.stop();
+    if (Mic.on) Mic.stop();
+    clearInterval(timerInt); timerInt = null; chk = null;
+  }
+
+  function render() {
+    $('#lang').textContent = S.lang === 'pt' ? 'EN' : 'PT';
+    $('#streak').textContent = streak();
+    $('#xp').textContent = S.xp;
+    $$('nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === V.name));
+    $('#nav-home').textContent = T('Journey', 'Jornada'); $('#nav-practice').textContent = T('Practice', 'Treino'); $('#nav-diary').textContent = T('Diary', 'Diário');
+    const el = $('#view');
+    if (!S.onboarded) return (el.innerHTML = onboarding());
+    el.innerHTML = V.name === 'dose' ? doseView() : V.name === 'practice' ? practiceView() : V.name === 'diary' ? diaryView() : homeView();
+    if (V.name === 'diary') loadRecs();
+  }
+
+  function onboarding() {
+    if (!S.lang) return `<section class="onb"><div class="logo-big">🌺</div><h1>Ukulele Master</h1><p>Choose your language · Escolha o idioma</p>
+      <div class="row"><button class="btn big" data-act="lang" data-l="en">English</button><button class="btn big" data-act="lang" data-l="pt">Português</button></div></section>`;
+    return `<section class="onb"><div class="logo-big">🌺</div><h1>${T('Small doses. Every day.', 'Doses homeopáticas. Todo dia.')}</h1>
+      <ul class="how"><li><b>👀 ${T('1 minute', '1 minuto')}</b> ${T('one idea, with a picture', 'uma ideia, com imagem')}</li>
+      <li><b>🎸 ${T('4 minutes', '4 minutos')}</b> ${T('one exercise, with play-along sound', 'um exercício, com som para acompanhar')}</li>
+      <li><b>🎤 ${T('Proof', 'Prova')}</b> ${T('the microphone listens and confirms what you played', 'o microfone escuta e confirma o que você tocou')}</li></ul>
+      <p>${T('One new dose per day. Where do you start?', 'Uma dose nova por dia. Por onde você começa?')}</p>
+      <div class="col"><button class="btn big" data-act="start" data-p="1">${T('I already play Am, F, C and G', 'Já toco Am, F, C e G')}<small>${T('Am (Lá menor), F (Fá maior), C (Dó maior), G (Sol maior)', 'Am (Lá menor), F (Fá maior), C (Dó maior), G (Sol maior)')}</small></button>
+      <button class="btn big ghost" data-act="start" data-p="0">${T('From the very beginning', 'Do comecinho')}</button></div></section>`;
+  }
+
+  function homeView() {
+    const cur = currentDose(), locked = lockedToday(), doneToday = isDone(cur.id);
+    const isl = ISLANDS[cur.isl - 1];
+    const num = cur.daily ? '★' : cur.id;
+    let hero;
+    if (locked || doneToday) hero = `<section class="hero rest"><p class="eyebrow">${T('Today’s dose', 'Dose de hoje')} ✓</p><h2>${T('Done. Let it settle.', 'Feita. Deixe assentar.')}</h2>
+      <p>${T('The next dose opens tomorrow. Consistency beats quantity.', 'A próxima dose abre amanhã. Constância vence quantidade.')}</p>
+      <p class="next">${T('Next', 'Próxima')}: <b>${L(cur.title)}</b></p>
+      <button class="btn ghost" data-act="view" data-v="practice">${T('Extra practice', 'Treino extra')}</button></section>`;
+    else hero = `<section class="hero"><p class="eyebrow">${T('Today’s dose', 'Dose de hoje')} · ${isl ? isl.emoji + ' ' + L(isl.name) : '★'}</p>
+      <h2><span class="num">${num}</span> ${L(cur.title)}</h2><p>${L(cur.idea)}</p>
+      <button class="btn big" data-act="dose" data-id="${cur.id}">${T('Start · 5 minutes', 'Começar · 5 minutos')}</button>
+      ${cur.must ? `<p class="must">🎤 ${T('This one is recorded.', 'Esta é gravada.')}</p>` : ''}</section>`;
+    const lv = level();
+    let path = '';
+    for (const il of ISLANDS) {
+      const ds = DOSES.filter((d) => d.isl === il.n), dn = ds.filter((d) => isDone(d.id)).length;
+      path += `<section class="island${dn === ds.length ? ' complete' : ''}"><header><span class="emo">${il.emoji}</span><div><h3>${L(il.name)}</h3><p>${L(il.tag)}</p></div><span class="count">${dn}/${ds.length}</span></header><ol class="nodes">`;
+      for (const d of ds) {
+        const done = S.doses[d.id], isCur = d.id === cur.id && !locked;
+        const cls = done ? 'done ' + done.level : isCur ? 'cur' : 'lock';
+        const badge = done ? (done.level === 'mic' ? '🎤' : '✓') : d.must ? '🎤' : d.id;
+        path += `<li><button class="node ${cls}${d.must ? ' boss' : ''}" ${done || isCur ? `data-act="dose" data-id="${d.id}"` : 'disabled'}><span class="badge">${badge}</span><span class="t">${L(d.title)}</span>${d.id === cur.id && locked ? `<span class="tm">${T('tomorrow', 'amanhã')}</span>` : ''}</button></li>`;
+      }
+      path += '</ol></section>';
+    }
+    return `${hero}<section class="lvl"><b>${T('Level', 'Nível')} ${lv + 1} · ${T(...LEVELS[lv])}</b><div class="bar"><i style="width:${Math.min(100, ((S.xp % 120) / 120) * 100)}%"></i></div>
+      <small>🎤 ${T('verified by microphone', 'verificado pelo microfone')} · ✓ ${T('self-reported', 'autodeclarado')}</small></section>${path}`;
+  }
+
+  function doseView() {
+    const d = getDose(V.id), st = V.stage || 0;
+    const stages = [T('Look', 'Olhar'), T('Play', 'Tocar'), T('Prove', 'Provar')];
+    const hasChord = d.vis.some((v) => v.t === 'chord' || v.t === 'seq' || v.t === 'song');
+    let panel;
+    if (st === 0) panel = `<section class="panel"><p class="idea">${L(d.idea)}</p><button class="btn big" data-act="stage" data-s="1">${T('Now play', 'Agora toque')} →</button></section>`;
+    else if (st === 1) panel = `<section class="panel"><ol class="steps">${d.steps.map((s) => `<li>${L(s)}</li>`).join('')}</ol>
+      <div class="tools"><button class="btn sm" data-act="along" id="along">▶ ${T('Play along', 'Tocar junto')}</button>
+      <button class="btn sm ghost" data-act="metro" id="metro">🥁 ${T('Metronome', 'Metrônomo')}</button>
+      <span class="bpm"><button data-act="bpm" data-d="-5">−</button><b id="bpm">${bpm}</b><button data-act="bpm" data-d="5">+</button></span>
+      <button class="btn sm ghost" data-act="timer" id="timer">⏱ 4:00</button></div>
+      <p class="hint">${T('Demonstration sound is synthesised. Go slower than you think you need.', 'O som de demonstração é sintetizado. Vá mais devagar do que acha que precisa.')}</p>
+      <button class="btn big" data-act="stage" data-s="2">${T('I played it', 'Toquei')} →</button></section>`;
+    else if (st === 2) panel = checkPanel(d);
+    else panel = resultPanel();
+    return `<header class="dose-head"><button class="back" data-act="view" data-v="home">←</button><div><p class="eyebrow">${d.daily ? '★' : T('Dose', 'Dose') + ' ' + d.id}${d.must ? ' · 🎤 ' + T('recorded', 'gravada') : ''}</p><h2>${L(d.title)}</h2></div></header>
+      <div class="stages">${stages.map((s, i) => `<span class="${i === Math.min(st, 2) ? 'on' : i < st ? 'past' : ''}">${i + 1} ${s}</span>`).join('')}</div>
+      ${st < 3 ? panel : ''}${st < 3 ? `<div class="vis">${d.vis.map(renderVis).join('')}${hasChord ? `<p class="legend">${FINGERS()}</p>` : ''}</div>` : panel}`;
+  }
+
+  function checkPanel(d) {
+    const self = `<div class="feel"><p>${T('How did it go?', 'Como foi?')}</p><div class="row">
+      <button class="btn feelb" data-act="feel" data-f="easy">😀<small>${T('Easy', 'Fácil')}</small></button>
+      <button class="btn feelb" data-act="feel" data-f="ok">🙂<small>${T('Getting there', 'Quase lá')}</small></button>
+      <button class="btn feelb" data-act="feel" data-f="hard">😬<small>${T('Still hard — repeat tomorrow', 'Ainda difícil — repetir amanhã')}</small></button></div></div>`;
+    if (!d.check) return `<section class="panel">${self}</section>`;
+    const what = { tune: T('Pluck each open string until all four turn green.', 'Toque cada corda solta até as quatro ficarem verdes.'),
+      strings: T('Hold the chord and pluck the strings one at a time, face to floor.', 'Segure o acorde e toque as cordas uma por vez, do rosto ao chão.'),
+      notes: T('Play the notes in order. Each one lights up when heard.', 'Toque as notas em ordem. Cada uma acende quando é ouvida.'),
+      strum: T(`Strum ${d.check.n} times${d.check.even ? ', evenly spaced' : ''}.`, `Faça ${d.check.n} batidas${d.check.even ? ', com espaço igual' : ''}.`),
+      chords: T('Play the chords in order, at least one strum each.', 'Toque os acordes em ordem, pelo menos uma batida cada.') }[d.check.k];
+    return `<section class="panel check"><p class="idea">🎤 ${what}</p><div id="live">${liveHTML(d, makeCheck(d.check))}</div>
+      <div class="row"><button class="btn big" data-act="listen" id="listen">${T('Start listening', 'Começar a ouvir')}</button></div>
+      <p class="hint" id="chkmsg">${T('Put the phone or laptop close to the ukulele. The recording stays on this device.', 'Deixe o celular ou o computador perto do ukulele. A gravação fica neste aparelho.')}</p>
+      <div id="after" hidden>${self}</div>
+      <button class="link" data-act="nomic">${T('I can’t use the microphone now', 'Não posso usar o microfone agora')}</button></section>`;
+  }
+
+  function liveHTML(d, c) {
+    const k = d.check.k;
+    if (k === 'tune') {
+      const cur = c.cur, cents = cur ? Math.max(-50, Math.min(50, cur.cents)) : 0;
+      return `<div class="tuner"><div class="strs">${U.OPEN.map((m, i) => `<span class="${c.ok[i] ? 'ok' : ''}${cur && cur.s === i ? ' act' : ''}">${U.noteName(m)}${c.ok[i] ? ' ✓' : ''}</span>`).join('')}</div>
+        <div class="gauge"><i class="zone"></i><i class="needle${cur ? '' : ' idle'}" style="left:${50 + cents}%"></i></div>
+        <p class="read">${cur ? (Math.abs(cur.cents) <= 10 ? T('In tune', 'Afinada') : cur.cents < 0 ? T('Too low — tighten', 'Baixa — aperte') : T('Too high — loosen', 'Alta — afrouxe')) : T('Pluck a string…', 'Toque uma corda…')}</p></div>`;
+    }
+    if (k === 'strings' || k === 'notes') {
+      const seq = k === 'strings' ? CHORDS[d.check.chord].frets.map((f, s) => [s, f]) : d.check.seq;
+      return `<div class="pills live">${seq.map((p, i) => `<span class="pill${i < c.i ? ' hit' : i === c.i ? ' next' : ''}" style="--c:${DG.pcColor(noteAt(p))}"><b>${U.noteName(noteAt(p))}</b><small>${T('string', 'corda')} ${U.STR[p[0]]}</small></span>`).join('')}</div>
+        <p class="read">${c.heard != null ? T('I hear', 'Estou ouvindo') + ' <b>' + U.noteName(c.heard) + '</b>' : '…'}</p>`;
+    }
+    if (k === 'strum') return `<div class="count-big"><b>${c.times.length}</b> / ${c.n}</div><div class="dots">${Array.from({ length: c.n }, (_, i) => `<i class="${i < c.times.length ? 'on' : ''}"></i>`).join('')}</div>`;
+    return `<div class="seq live">${c.seq.map((id, i) => `<div class="box${i < c.i || (i === c.i && c.done) ? ' hit' : i === c.i ? (c.hits[i] ? ' hit next' : ' next') : ''}">${chordName(id)}</div>`).join('')}</div>
+      <p class="read">${c.last ? T('I hear', 'Estou ouvindo') + ' <b>' + CHORDS[c.last].label + '</b>' : '…'}</p>`;
+  }
+
+  async function listen() {
+    const d = getDose(V.id), btn = $('#listen'), msg = $('#chkmsg');
+    if (Mic.on) { await Mic.stop(); chk = null; btn.textContent = T('Start listening', 'Começar a ouvir'); return; }
+    chk = makeCheck(d.check);
+    try {
+      await Mic.start((fr) => {
+        if (!chk) return;
+        chk.feed(fr);
+        if (chk.done) return finishCheck(d);
+        if (++frameN % 3 === 0) { const l = $('#live'); if (l) l.innerHTML = liveHTML(d, chk); }
+      }, true);
+    } catch (e) {
+      chk = null;
+      msg.textContent = T('The microphone is blocked. Allow it in the browser, or use the link below.', 'O microfone está bloqueado. Permita no navegador, ou use o link abaixo.');
+      return;
+    }
+    btn.textContent = '■ ' + T('Stop', 'Parar');
+    msg.textContent = T('Listening…', 'Ouvindo…');
+  }
+
+  async function finishCheck(d) {
+    const c = chk; chk = null;
+    $('#live').innerHTML = liveHTML(d, c);
+    const blob = await Mic.stop();
+    const btn = $('#listen'), msg = $('#chkmsg');
+    if (!btn) return;
+    if (!c.pass) {
+      btn.textContent = T('Try again', 'Tentar de novo');
+      msg.textContent = T(`I heard ${c.n} strums at about ${Math.round(c.stats.bpm)} per minute, but the spacing was uneven. Try again with the metronome in your head.`,
+        `Ouvi ${c.n} batidas a cerca de ${Math.round(c.stats.bpm)} por minuto, mas o espaço entre elas variou. Tente de novo com o metrônomo na cabeça.`);
+      return;
+    }
+    V.mic = { stats: c.stats || null };
+    if (blob && blob.size) {
+      const id = Date.now();
+      V.mic.rec = id;
+      try {
+        await RecStore.put({ id, d: today(), dose: d.id, title: d.title, blob });
+        const all = await RecStore.all();
+        for (const r of all.sort((a, b) => b.id - a.id).slice(30)) await RecStore.del(r.id);
+      } catch (e) {}
+    }
+    btn.hidden = true; $('.link', $('.check')).hidden = true;
+    msg.innerHTML = '✅ <b>' + T('Verified by the microphone.', 'Verificado pelo microfone.') + '</b>' + (c.stats ? ' ' + T(`About ${Math.round(c.stats.bpm)} strums per minute.`, `Cerca de ${Math.round(c.stats.bpm)} batidas por minuto.`) : '');
+    $('#after').hidden = false;
+  }
+
+  function complete(feel) {
+    const d = getDose(V.id), mic = !!V.mic, was = isDone(d.id);
+    const advance = mic || feel !== 'hard';
+    let gain = was ? 3 : advance ? 10 + (mic ? 5 : 0) + (d.must ? 10 : 0) : 5;
+    if (!was && advance) { S.doses[d.id] = { on: today(), level: mic ? 'mic' : 'self' }; S.newOn = today(); }
+    else if (was && mic && S.doses[d.id].level !== 'mic') S.doses[d.id].level = 'mic';
+    S.xp += gain;
+    S.log.push({ d: today(), id: d.id, level: mic ? 'mic' : 'self', feel, rec: mic && V.mic.rec ? V.mic.rec : undefined, bpm: mic && V.mic.stats ? Math.round(V.mic.stats.bpm) : undefined });
+    save();
+    V.result = { gain, advance, was, mic, feel };
+    V.stage = 3; render(); window.scrollTo(0, 0);
+  }
+
+  function resultPanel() {
+    const r = V.result;
+    const head = r.advance ? (r.mic ? '🎤✨' : '🌺') : '🌱';
+    const text = !r.advance ? T('Good work. This dose comes back tomorrow: consolidation is progress.', 'Bom trabalho. Esta dose volta amanhã: consolidar também é progresso.')
+      : r.was ? T('Extra practice counted.', 'Treino extra contado.')
+      : r.mic ? T('Played and verified. See you tomorrow.', 'Tocada e verificada. Até amanhã.') : T('Dose done. See you tomorrow.', 'Dose feita. Até amanhã.');
+    return `<section class="result"><div class="logo-big">${head}</div><h2>+${r.gain} XP</h2><p>${text}</p>
+      <p class="streak-big">🔥 ${streak()} ${T('day streak', 'dias seguidos')}</p>
+      <button class="btn big" data-act="view" data-v="home">${T('Back to the journey', 'Voltar à jornada')}</button></section>`;
+  }
+
+  function practiceView() {
+    const sel = V.chord || 'G';
+    const known = Object.keys(CHORDS);
+    return `<h2 class="page">${T('Practice room', 'Sala de treino')}</h2>
+      <article class="card"><h3>${T('Tuner', 'Afinador')}</h3><div id="live">${liveHTML({ check: { k: 'tune' } }, makeCheck({ k: 'tune' }))}</div>
+      <button class="btn" data-act="tuner" id="tunerb">${T('Start tuner', 'Ligar afinador')}</button></article>
+      <article class="card"><h3>${T('Metronome', 'Metrônomo')}</h3><div class="tools"><button class="btn sm" data-act="metro" id="metro">🥁 ${T('Start', 'Ligar')}</button>
+      <span class="bpm"><button data-act="bpm" data-d="-5">−</button><b id="bpm">${bpm}</b><button data-act="bpm" data-d="5">+</button></span></div></article>
+      <h3 class="sub">${T('Chord library', 'Biblioteca de acordes')}</h3>
+      <div class="chips">${known.map((id) => `<button class="chip${id === sel ? ' on' : ''}" data-act="pick" data-id="${id}">${CHORDS[id].sym}${CHORDS[id].tag ? '↑' : ''}</button>`).join('')}</div>
+      ${chordCard(sel)}<p class="legend">${FINGERS()}</p>`;
+  }
+
+  function diaryView() {
+    const days = new Set(S.log.map((e) => e.d));
+    const done = Object.keys(S.doses).length, mic = Object.values(S.doses).filter((x) => x.level === 'mic').length;
+    const end = new Date(today() + 'T12:00'); end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
+    let cal = '';
+    for (let i = 34; i >= 0; i--) { const d = new Date(end); d.setDate(end.getDate() - i); const k = iso(d); cal += `<i class="${days.has(k) ? 'on' : ''}${k === today() ? ' today' : ''}${k > today() ? ' fut' : ''}" title="${k}"></i>`; }
+    const rows = S.log.slice(-25).reverse().map((e) => { const d = getDose(e.id); return `<li><span>${niceDate(e.d)}</span><b>${d ? L(d.title) : e.id}</b><span class="ev ${e.level}">${e.level === 'mic' ? '🎤 ' + T('verified', 'verificado') : '✓ ' + T('self-report', 'autodeclarado')}</span><span>${{ easy: '😀', ok: '🙂', hard: '😬' }[e.feel] || ''}</span></li>`; }).join('');
+    return `<h2 class="page">${T('Diary', 'Diário')}</h2>
+      <div class="stats"><div><b>${streak()}</b>${T('day streak', 'dias seguidos')}</div><div><b>${days.size}</b>${T('days played', 'dias tocados')}</div><div><b>${done}</b>${T('doses done', 'doses feitas')}</div><div><b>${mic}</b>${T('mic-verified', 'verificadas')}</div></div>
+      <article class="card"><h3>${T('Last five weeks', 'Últimas cinco semanas')}</h3><div class="cal">${cal}</div></article>
+      <article class="card"><h3>${T('Recordings', 'Gravações')}</h3><div id="recs"><p class="hint">…</p></div></article>
+      <article class="card"><h3>${T('Practice log', 'Registro de prática')}</h3><ul class="log">${rows || `<li>${T('Nothing yet. Start today’s dose.', 'Nada ainda. Comece a dose de hoje.')}</li>`}</ul></article>
+      <article class="card"><h3>${T('Share and back up', 'Compartilhar e guardar')}</h3><p class="hint">${T('Progress lives in this browser. Copy the report into your notes or an AI coach; export a backup to move devices.', 'O progresso fica neste navegador. Copie o relatório para suas notas ou para um professor de IA; exporte uma cópia para trocar de aparelho.')}</p>
+      <div class="row wrap"><button class="btn sm" data-act="report">${T('Copy progress report', 'Copiar relatório')}</button><button class="btn sm ghost" data-act="export">${T('Export backup', 'Exportar cópia')}</button>
+      <label class="btn sm ghost">${T('Import backup', 'Importar cópia')}<input type="file" id="imp" accept="application/json" hidden></label><button class="btn sm ghost danger" data-act="reset">${T('Reset', 'Zerar')}</button></div><p class="hint" id="shmsg"></p></article>`;
+  }
+
+  async function loadRecs() {
+    let recs = [];
+    try { recs = (await RecStore.all()).sort((a, b) => b.id - a.id); } catch (e) {}
+    const el = $('#recs');
+    if (!el) return;
+    el.innerHTML = recs.length ? recs.map((r) => `<div class="rec"><div><b>${L(r.title)}</b><small>${niceDate(r.d)}</small></div><audio controls preload="none" src="${URL.createObjectURL(r.blob)}"></audio></div>`).join('')
+      : `<p class="hint">${T('Recorded doses appear here, so you can hear your own progress.', 'As doses gravadas aparecem aqui, para você ouvir o próprio progresso.')}</p>`;
+  }
+
+  function report() {
+    const cur = currentDose();
+    const lines = [`Ukulele Master — ${T('progress report', 'relatório de progresso')} (${today()})`,
+      `${T('Streak', 'Sequência')}: ${streak()} · XP: ${S.xp} · ${T('Next dose', 'Próxima dose')}: ${cur.daily ? L(cur.title) : cur.id + ' — ' + L(cur.title)}`, '',
+      T('Completed doses (evidence: mic = verified by microphone, self = self-reported, placement = known before starting):', 'Doses concluídas (evidência: mic = verificada pelo microfone, self = autodeclarada, placement = já sabia antes de começar):')];
+    for (const d of DOSES) if (S.doses[d.id]) lines.push(`- ${d.id}. ${L(d.title)} — ${S.doses[d.id].on} — ${S.doses[d.id].level}`);
+    lines.push('', T('Last sessions:', 'Últimas sessões:'));
+    for (const e of S.log.slice(-10)) { const d = getDose(e.id); lines.push(`- ${e.d}: ${d ? L(d.title) : e.id} — ${e.level}${e.feel ? ', ' + e.feel : ''}${e.bpm ? ', ~' + e.bpm + ' bpm' : ''}`); }
+    return lines.join('\n');
+  }
+
+  // ───────── actions
+  function hl(slot, ci) {
+    $$('.slot').forEach((g) => g.classList.toggle('on', +g.dataset.slot === slot));
+    $$('.vis .box, .vis .bar').forEach((b) => b.classList.toggle('on', +b.dataset.ci === ci));
+  }
+  const A = {
+    lang(b) { setLang(b.dataset.l); render(); },
+    start(b) {
+      if (b.dataset.p === '1') [2, 3, 4, 5].forEach((id) => (S.doses[id] = { on: today(), level: 'placement' }));
+      S.onboarded = true; save(); render();
+    },
+    view(b) { go({ name: b.dataset.v }); },
+    dose(b) { go({ name: 'dose', id: b.dataset.id, stage: 0 }); },
+    stage(b) { stopAll(); V.stage = +b.dataset.s; V.mic = null; render(); window.scrollTo(0, 0); },
+    hear(b) {
+      const card = b.closest('.card'), delays = Snd.chord(b.dataset.id);
+      delays.forEach((ms, i) => setTimeout(() => { const p = $(`[data-pill="${i}"]`, card); if (p) { p.classList.add('ping'); setTimeout(() => p.classList.remove('ping'), 450); } }, ms));
+    },
+    peek(b) { const id = b.dataset.id; const dlg = $('#peek'); dlg.innerHTML = chordCard(id) + `<p class="legend">${FINGERS()}</p><button class="btn" data-act="closepeek">${T('Close', 'Fechar')}</button>`; dlg.showModal(); },
+    closepeek() { $('#peek').close(); },
+    along(b) {
+      const d = getDose(V.id);
+      if (Player.on) { Player.stop(); hl(-1, -1); $('#along').textContent = '▶ ' + T('Play along', 'Tocar junto'); return; }
+      Player.start(d.demo, bpm, { click: true, onSlot: d.demo.notes ? (i) => $$('[data-ni]').forEach((p) => p.classList.toggle('on', +p.dataset.ni === i)) : hl });
+      $('#along').textContent = '■ ' + T('Stop', 'Parar'); const m = $('#metro'); if (m) m.textContent = '🥁 ' + T('Metronome', 'Metrônomo');
+    },
+    metro() {
+      const m = $('#metro'), lab = V.name === 'practice' ? T('Start', 'Ligar') : T('Metronome', 'Metrônomo');
+      if (Player.on) { Player.stop(); hl(-1, -1); m.textContent = '🥁 ' + lab; const a = $('#along'); if (a) a.textContent = '▶ ' + T('Play along', 'Tocar junto'); return; }
+      const d = V.name === 'dose' ? getDose(V.id) : null;
+      const pat = d && d.demo && d.demo.pat ? d.demo.pat : 'D.D.D.D.';
+      Player.start({ pat, seq: null }, bpm, { click: true, sound: false, onSlot: (s) => hl(s, -1) });
+      m.textContent = '■ ' + T('Stop', 'Parar');
+    },
+    bpm(b) { bpm = Math.max(40, Math.min(140, bpm + +b.dataset.d)); $('#bpm').textContent = bpm; if (Player.on) { Player.stop(); hl(-1, -1); $$('#along,#metro').forEach((x) => (x.textContent = x.id === 'along' ? '▶ ' + T('Play along', 'Tocar junto') : '🥁 ' + T('Metronome', 'Metrônomo'))); } },
+    timer() {
+      const t = $('#timer');
+      if (timerInt) { clearInterval(timerInt); timerInt = null; t.textContent = '⏱ 4:00'; return; }
+      timerLeft = 240;
+      timerInt = setInterval(() => {
+        timerLeft--;
+        const el = $('#timer'); if (!el) return clearInterval(timerInt);
+        el.textContent = `⏱ ${Math.floor(timerLeft / 60)}:${String(timerLeft % 60).padStart(2, '0')}`;
+        if (timerLeft <= 0) { clearInterval(timerInt); timerInt = null; el.textContent = '⏱ ✓'; Snd.click(0, true); }
+      }, 1000);
+    },
+    listen,
+    nomic() { V.mic = null; $('#after').hidden = false; $('#listen').hidden = true; $('#chkmsg').textContent = T('Recorded as self-reported. You can verify it with the microphone another day.', 'Fica registrado como autodeclarado. Você pode verificar com o microfone outro dia.'); },
+    feel(b) { complete(b.dataset.f); },
+    pick(b) { V.chord = b.dataset.id; stopAll(); render(); },
+    async tuner() {
+      const b = $('#tunerb');
+      if (Mic.on) { await Mic.stop(); chk = null; b.textContent = T('Start tuner', 'Ligar afinador'); return; }
+      chk = makeCheck({ k: 'tune' });
+      try { await Mic.start((fr) => { if (!chk) return; chk.feed(fr); chk.done = false; if (++frameN % 3 === 0) { const l = $('#live'); if (l) l.innerHTML = liveHTML({ check: { k: 'tune' } }, chk); } }, false); b.textContent = '■ ' + T('Stop', 'Parar'); }
+      catch (e) { chk = null; b.textContent = T('Microphone blocked', 'Microfone bloqueado'); }
+    },
+    async report() { const txt = report(); try { await navigator.clipboard.writeText(txt); $('#shmsg').textContent = T('Copied.', 'Copiado.'); } catch (e) { $('#shmsg').innerHTML = `<textarea rows="8" readonly>${txt}</textarea>`; } },
+    export() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = `ukulele-master-${today()}.json`; a.click(); },
+    reset() { if (confirm(T('Erase all progress on this device?', 'Apagar todo o progresso neste aparelho?'))) { localStorage.removeItem(KEY); location.reload(); } },
+  };
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (b && A[b.dataset.act]) A[b.dataset.act](b);
+  });
+  document.addEventListener('change', (e) => {
+    if (e.target.id !== 'imp' || !e.target.files[0]) return;
+    e.target.files[0].text().then((t) => { try { const o = JSON.parse(t); if (o && o.doses && o.log) { S = Object.assign(S, o); save(); setLang(S.lang || 'en'); render(); } } catch (err) { $('#shmsg').textContent = T('That file is not a backup.', 'Esse arquivo não é uma cópia.'); } });
+  });
+  $('#lang').addEventListener('click', () => { setLang(S.lang === 'pt' ? 'en' : 'pt'); stopAll(); render(); });
+  $$('nav button').forEach((b) => b.addEventListener('click', () => S.onboarded && go({ name: b.dataset.view })));
+
+  if (S.lang) setLang(S.lang);
+  render();
+  window.__uke = { S: () => S, go };
+})();
