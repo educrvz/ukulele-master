@@ -19,4 +19,4 @@ A static, bilingual (English / Brazilian Portuguese) daily-dose ukulele game, ho
 - Every chord shows both views: finger placement and the note each string sounds; say whether repeated names are the same pitch or an octave apart.
 - G (Sol maior) uses the learner's fingering 2–3–1. Standard high-G tuning, right-handed.
 - Keep evidence honest: `mic` (verified by microphone) is distinct from `self` (self-reported). Never mark mastery from silence.
-- Songs must be public domain or original.
+- Built-in curriculum songs remain public domain or original. Song goals may use any title, but store chord symbols and short section sequences only, with a source link; do not copy lyrics or full third-party chord sheets into the app.

@@ -17,6 +17,7 @@
   const forced = new URLSearchParams(location.search).get('date');
   const today = () => forced || iso(new Date());
   const niceDate = (s) => new Date(s + 'T12:00').toLocaleDateString(S.lang === 'pt' ? 'pt-BR' : 'en-GB', { day: 'numeric', month: 'short' });
+  const goalAPI = SongGoal.init({ state: () => S, save, render: () => render(), today, lang: () => S.lang, diagrams: DG });
 
   const FINGERS = () => T('1 index · 2 middle · 3 ring. Numbers inside dots are fingers, not frets.', '1 indicador · 2 médio · 3 anelar. Os números nas bolinhas são dedos, não casas.');
   const LEVELS = [['Beachcomber', 'Catador de conchas'], ['Strummer', 'Batedor'], ['Island hopper', 'Navegante'], ['Groove keeper', 'Guardião do ritmo'], ['Song carrier', 'Cantador'], ['Melody diver', 'Mergulhador da melodia'], ['Blues sailor', 'Marujo do blues'], ['Ukulele master', 'Mestre do ukulele']];
@@ -78,11 +79,12 @@
   }
 
   // ───────── views
-  let V = { name: 'home' };
+  let V = { name: S.goal ? 'goal' : 'home' };
   let chk = null, timerInt = null, timerLeft = 240, bpm = 60, frameN = 0;
   function go(v) { stopAll(); V = v; render(); window.scrollTo(0, 0); }
   function stopAll() {
     Player.stop();
+    goalAPI.stop();
     if (Mic.on) Mic.stop();
     clearInterval(timerInt); timerInt = null; chk = null;
   }
@@ -92,10 +94,10 @@
     $('#streak').textContent = streak();
     $('#xp').textContent = S.xp;
     $$('nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === V.name));
-    $('#nav-home').textContent = T('Journey', 'Jornada'); $('#nav-practice').textContent = T('Practice', 'Treino'); $('#nav-diary').textContent = T('Diary', 'Diário');
+    $('#nav-home').textContent = T('Journey', 'Jornada'); $('#nav-goal').textContent = T('Song goal', 'Meta musical'); $('#nav-practice').textContent = T('Practice', 'Treino'); $('#nav-diary').textContent = T('Diary', 'Diário');
     const el = $('#view');
     if (!S.onboarded) return (el.innerHTML = onboarding());
-    el.innerHTML = V.name === 'dose' ? doseView() : V.name === 'practice' ? practiceView() : V.name === 'diary' ? diaryView() : homeView();
+    el.innerHTML = V.name === 'dose' ? doseView() : V.name === 'goal' ? goalAPI.view() : V.name === 'practice' ? practiceView() : V.name === 'diary' ? diaryView() : homeView();
     if (V.name === 'diary') loadRecs();
   }
 
@@ -137,7 +139,7 @@
       }
       path += '</ol></section>';
     }
-    return `${hero}<section class="lvl"><b>${T('Level', 'Nível')} ${lv + 1} · ${T(...LEVELS[lv])}</b><div class="bar"><i style="width:${Math.min(100, ((S.xp % 120) / 120) * 100)}%"></i></div>
+    return `${hero}<article class="card goal-entry"><h3>🎯 ${T('A song you want to play?', 'Uma música que você quer tocar?')}</h3><p>${T('Set the song and the date. Your five-minute lessons will follow that goal.', 'Escolha a música e a data. Suas aulas de cinco minutos seguirão essa meta.')}</p><button class="btn" data-act="view" data-v="goal">${T('Open song goal', 'Abrir meta musical')}</button></article><section class="lvl"><b>${T('Level', 'Nível')} ${lv + 1} · ${T(...LEVELS[lv])}</b><div class="bar"><i style="width:${Math.min(100, ((S.xp % 120) / 120) * 100)}%"></i></div>
       <small>🎤 ${T('verified by microphone', 'verificado pelo microfone')} · ✓ ${T('self-reported', 'autodeclarado')}</small></section>${path}`;
   }
 
@@ -315,6 +317,7 @@
     for (const d of DOSES) if (S.doses[d.id]) lines.push(`- ${d.id}. ${L(d.title)} — ${S.doses[d.id].on} — ${S.doses[d.id].level}`);
     lines.push('', T('Last sessions:', 'Últimas sessões:'));
     for (const e of S.log.slice(-10)) { const d = getDose(e.id); lines.push(`- ${e.d}: ${d ? L(d.title) : e.id} — ${e.level}${e.feel ? ', ' + e.feel : ''}${e.bpm ? ', ~' + e.bpm + ' bpm' : ''}`); }
+    const goalReport = goalAPI.report(); if (goalReport) lines.push('', goalReport);
     return lines.join('\n');
   }
 
@@ -381,6 +384,8 @@
   };
 
   document.addEventListener('click', (e) => {
+    const gb = e.target.closest('[data-goal-act]');
+    if (gb) { goalAPI.action(gb); return; }
     const b = e.target.closest('[data-act]');
     if (b && A[b.dataset.act]) A[b.dataset.act](b);
   });
@@ -388,6 +393,7 @@
     if (e.target.id !== 'imp' || !e.target.files[0]) return;
     e.target.files[0].text().then((t) => { try { const o = JSON.parse(t); if (o && o.doses && o.log) { S = Object.assign(S, o); save(); setLang(S.lang || 'en'); render(); } } catch (err) { $('#shmsg').textContent = T('That file is not a backup.', 'Esse arquivo não é uma cópia.'); } });
   });
+  document.addEventListener('submit', (e) => { if (e.target.id === 'goal-setup') { e.preventDefault(); goalAPI.submit(e.target); } });
   $('#lang').addEventListener('click', () => { setLang(S.lang === 'pt' ? 'en' : 'pt'); stopAll(); render(); });
   $$('nav button').forEach((b) => b.addEventListener('click', () => S.onboarded && go({ name: b.dataset.view })));
 
