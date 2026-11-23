@@ -1,1 +1,24 @@
-{"name":"Ukulele Master","short_name":"Ukulele","start_url":"./","display":"standalone","background_color":"#fbf3e4","theme_color":"#0f7b83","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml"}]}
+{
+  "name": "Ukulele Master",
+  "short_name": "Ukulele",
+  "description": "Learn ukulele five minutes a day, in English and Portuguese. Clear diagrams, play-along sound and microphone checks.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff6e8",
+  "theme_color": "#0c8b86",
+  "lang": "en",
+  "categories": ["music", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Practice room", "short_name": "Practice", "url": "./?view=practice", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Song goal", "short_name": "Song", "url": "./?view=goal", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

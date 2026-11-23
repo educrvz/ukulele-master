@@ -1,17 +1,36 @@
 # Ukulele Master
 
-A static, bilingual (English / Brazilian Portuguese) daily-dose ukulele game, hosted on GitHub Pages. No build step, no backend.
+A static, bilingual (English / Brazilian Portuguese) daily-dose ukulele game. Installable PWA (Progressive Web App), hosted on GitHub Pages. No build step, no backend, no dependencies.
+
+Live: https://educrvz.github.io/ukulele-master/ · Repo: https://github.com/educrvz/ukulele-master
+
+Read first: the newest entries in `PROGRESS.md`, then `docs/CONTEXT.md` and `docs/RUNBOOK.md`.
 
 ## Run and test
-- Serve: `python3 -m http.server 8765` in this folder, then open `http://127.0.0.1:8765/`.
-- `?date=YYYY-MM-DD` overrides "today" for testing the one-dose-per-day gate.
-- Deploy: push to `main`; GitHub Pages serves the repository root.
+- Serve: `python3 -m http.server 8765 --bind 127.0.0.1` in the repo root, then open `http://127.0.0.1:8765/`.
+- `?date=YYYY-MM-DD` overrides "today" (tests the one-dose-per-day gate). `?view=practice|goal|diary` opens a tab directly.
+- Test before every push: `python3 tests/smoke.py` (headless Playwright; must print "All checks passed.").
+- Visual check: `python3 tests/shots.py <folder>` writes phone, desktop and dark-mode screenshots. Look at them.
+- Deploy: merge to `main`; GitHub Pages serves the repository root within a minute or two.
 
 ## Layout
+- `index.html`: shell (top bar, tab bar, script tags in dependency order).
+- `css/style.css`: design tokens (light + dark), then components by section. Use the tokens; do not hard-code colours.
 - `js/data.js`: chords and the 48-dose curriculum (all text in `B(en, pt)` pairs).
 - `js/diagrams.js`: SVG chord chart, player's-view neck with sounded notes, strum patterns.
 - `js/dsp.js`: pure pitch / chroma / onset functions. `js/mic.js`: microphone checks and recordings (IndexedDB).
-- `js/audio.js`: synthesised demo sound and play-along. `js/app.js`: views, progress (localStorage key `uke-master-v1`).
+- `js/audio.js`: synthesised demo sound and play-along. `js/ui.js`: icons, toast, confetti, wake lock, theme.
+- `js/song-goal.js` + `js/song-catalog.js`: Song Goal Mode. `js/app.js`: views, navigation, progress.
+- `sw.js` + `js/pwa.js` + `manifest.webmanifest` + `icons/`: install and offline support.
+- `tools/make-icons.py`: regenerate PNG icons after editing `icons/icon.svg`.
+
+## Rules for changes
+- **Never rename the localStorage key `uke-master-v1`** or change the shape of saved progress without a migration: the learner's progress lives only in his browser.
+- **New file the app loads? Add it to `SHELL` in `sw.js`**, or it will be missing offline. The smoke test's offline check catches most cases.
+- The service worker is network-first, so deploys need no version bump. Change `CACHE` in `sw.js` only to force-drop old cached files.
+- Every user-facing string goes through `T(en, pt)` or a `B(en, pt)` pair. No English-only text.
+- Phone first: check 390 px wide, both themes. Tap targets at least 44 px. Respect `prefers-reduced-motion`.
+- No frameworks, bundlers or npm packages without an ADR (Architecture Decision Record) in `docs/decisions/`.
 
 ## Teaching rules (from the learner's Notion home page)
 - One small idea per dose: about 1 minute looking, 4 minutes playing.
