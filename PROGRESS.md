@@ -9,6 +9,7 @@
 - **Kept:** localStorage key `uke-master-v1` and data shape (existing progress carries over; `changes` and `theme` are new optional fields), curriculum, diagrams, DSP and microphone logic, teaching rules.
 - **Organisation:** `icons/`, `tools/make-icons.py`, `tests/smoke.py`, `tests/shots.py`, `docs/CONTEXT.md`, `docs/RUNBOOK.md`, `docs/decisions/0001`, fuller `README.md` and `AGENTS.md`. Root `icon.svg` moved to `icons/`. Local copy re-linked to GitHub (it was an untracked copy of the first commit).
 - **Checks:** `tests/smoke.py` 26/26 in headless Chromium (onboarding, all 48 doses in both languages and all stages, full lesson, day gate, chord-change game, song goal setup/check-in/edit, dark theme, manifest and icons, service worker control, offline load). Screenshots reviewed on phone, desktop and dark mode.
+- **Deployed:** pull request 1 merged into `main` on 2026-11-23; GitHub Pages build succeeded; `tests/smoke.py` passes 26/26 against https://educrvz.github.io/ukulele-master/.
 - **Unverified:** real install on an iPhone/Android home screen; microphone checks with a real ukulele (unchanged from before); wake lock and vibration on iOS (iOS Safari does not vibrate; wake lock needs iOS 16.4+); Lighthouse PWA audit not run.
 - **Next:** install on the phone and report anything awkward; first real microphone session to tune thresholds; consider syncing the Diary report to Notion automatically.
 
