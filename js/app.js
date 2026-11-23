@@ -246,9 +246,9 @@
     const what = { tune: T('Pluck each open string until all four turn green.', 'Toque cada corda solta até as quatro ficarem verdes.'),
       strings: T('Hold the chord and pluck the strings one at a time, face to floor.', 'Segure o acorde e toque as cordas uma por vez, do rosto ao chão.'),
       notes: T('Play the notes in order. Each one lights up when heard.', 'Toque as notas em ordem. Cada uma acende quando é ouvida.'),
-      strum: T(`Strum ${d.check.n} times${d.check.even ? ', evenly spaced' : ''}.`, `Faça ${d.check.n} batidas${d.check.even ? ', com espaço igual' : ''}.`),
+      strum: T(`Strum ${d.check.n} times${d.check.even ? ', evenly spaced' : ''}. Count in your head: only the chord is counted, and a loud voice can hide a strum.`, `Faça ${d.check.n} batidas${d.check.even ? ', com espaço igual' : ''}. Conte de cabeça: só o acorde é contado, e uma voz alta pode esconder uma batida.`),
       chords: T('Play the chords in order, at least one strum each.', 'Toque os acordes em ordem, pelo menos uma batida cada.') }[d.check.k];
-    return `<section class="panel check"><p class="idea">${icon('mic')} <span>${what}</span></p><div id="live">${liveHTML(d, makeCheck(d.check))}</div>
+    return `<section class="panel check"><p class="idea">${icon('mic')} <span>${what}</span></p><div id="live">${liveHTML(d, makeCheck(d.check))}</div>${levelBar()}
       <button class="btn big" data-act="listen" id="listen">${icon('mic')} ${T('Start listening', 'Começar a ouvir')}</button>
       <p class="hint" id="chkmsg">${T('Put the phone or laptop close to the ukulele. The recording stays on this device.', 'Deixe o celular ou o computador perto do ukulele. A gravação fica neste aparelho.')}</p>
       <div id="after" hidden>${self}</div>
@@ -268,9 +268,22 @@
       return `<div class="pills live">${seq.map((p, i) => `<span class="pill${i < c.i ? ' hit' : i === c.i ? ' next' : ''}" style="--c:${DG.pcColor(noteAt(p))}"><b>${U.noteName(noteAt(p))}</b><small>${T('string', 'corda')} ${U.STR[p[0]]}</small></span>`).join('')}</div>
         <p class="read">${c.heard != null ? T('I hear', 'Estou ouvindo') + ' <b>' + U.noteName(c.heard) + '</b>' : '…'}</p>`;
     }
-    if (k === 'strum') return `<div class="count-big"><b>${c.times.length}</b> / ${c.n}</div><div class="dots">${Array.from({ length: c.n }, (_, i) => `<i class="${i < c.times.length ? 'on' : ''}"></i>`).join('')}</div>`;
+    if (k === 'strum') return `<div class="count-big"><b>${c.times.length}</b> / ${c.n}</div><div class="dots">${Array.from({ length: c.n }, (_, i) => `<i class="${i < c.times.length ? 'on' : ''}"></i>`).join('')}</div>
+      <p class="read hint">${c.rejected ? T(`Ignored ${c.rejected} other sound${c.rejected > 1 ? 's' : ''} (voice, taps, or a different chord).`, `${c.rejected} outro${c.rejected > 1 ? 's sons ignorados' : ' som ignorado'} (voz, batidas na mesa ou outro acorde).`) : '&nbsp;'}</p>`;
     return `<div class="seq live">${c.seq.map((id, i) => `<div class="box${i < c.i || (i === c.i && c.done) ? ' hit' : i === c.i ? (c.hits[i] ? ' hit next' : ' next') : ''}">${chordName(id)}</div>`).join('')}</div>
       <p class="read">${c.last ? T('I hear', 'Estou ouvindo') + ' <b>' + CHORDS[c.last].label + '</b>' : '…'}</p>`;
+  }
+
+  /* Microphone level: shows that the app hears the room, and when a sound is loud enough to be judged.
+     The marker is the room's background level; the bar turns green only when the sound stands out from it. */
+  const levelBar = () => `<div class="lvl" aria-hidden="true"><i id="lvl"></i><b id="lvlfloor"></b><span>${T('microphone level', 'nível do microfone')}</span></div>`;
+  const dbPct = (x) => Math.max(0, Math.min(100, ((20 * Math.log10(Math.max(x, 1e-5)) + 66) / 60) * 100));
+  function showLevel(fr) {
+    const bar = $('#lvl'), fl = $('#lvlfloor');
+    if (!bar) return;
+    bar.style.width = (fr ? dbPct(fr.rms) : 0) + '%';
+    bar.classList.toggle('hot', !!fr && fr.rms > Math.max(0.006, 2.5 * (fr.floor || 0)));
+    if (fl) fl.style.left = (fr ? dbPct(fr.floor || 0) : 0) + '%';
   }
 
   const listenLabel = (on) => (on ? `${icon('stop')} ${T('Stop', 'Parar')}` : `${icon('mic')} ${T('Start listening', 'Começar a ouvir')}`);
@@ -281,7 +294,7 @@
     try {
       await Mic.start((fr) => {
         if (!chk) return;
-        chk.feed(fr);
+        chk.feed(fr); showLevel(fr);
         if (chk.done) return finishCheck(d);
         if (++frameN % 3 === 0) { const l = $('#live'); if (l) l.innerHTML = liveHTML(d, chk); }
       }, true);
@@ -358,7 +371,7 @@
     const a = V.cgA || 'C', b = V.cgB || 'G', rec = S.changes[[a, b].sort().join(':')];
     const opts = (cur) => known.filter((id) => id !== 'Chi').map((id) => `<option value="${id}"${id === cur ? ' selected' : ''}>${CHORDS[id].label}</option>`).join('');
     return `<h1 class="page">${T('Practice room', 'Sala de treino')}</h1><p class="page-sub">${T('Free practice. Nothing here is locked.', 'Treino livre. Nada aqui é bloqueado.')}</p>
-      <article class="card"><h3>${icon('mic')} ${T('Tuner', 'Afinador')}</h3><div id="live">${liveHTML({ check: { k: 'tune' } }, makeCheck({ k: 'tune' }))}</div>
+      <article class="card"><h3>${icon('mic')} ${T('Tuner', 'Afinador')}</h3><div id="live">${liveHTML({ check: { k: 'tune' } }, makeCheck({ k: 'tune' }))}</div>${levelBar()}
         <p style="margin-top:12px"><button class="btn sea" data-act="tuner" id="tunerb">${icon('mic')} ${T('Start tuner', 'Ligar afinador')}</button></p></article>
       <article class="card"><h3>${icon('swap')} ${T('One-minute changes', 'Trocas em um minuto')}</h3>
         <p class="hint">${T('Switch between two chords for 60 seconds. Tap the pad after each clean change. You count: this is self-reported.', 'Troque entre dois acordes por 60 segundos. Toque no botão a cada troca limpa. Você conta: é autodeclarado.')}</p>
@@ -510,7 +523,7 @@
       const b = $('#tunerb'), lab = (on) => (on ? `${icon('stop')} ${T('Stop', 'Parar')}` : `${icon('mic')} ${T('Start tuner', 'Ligar afinador')}`);
       if (Mic.on) { await Mic.stop(); chk = null; b.innerHTML = lab(false); return; }
       chk = makeCheck({ k: 'tune' });
-      try { await Mic.start((fr) => { if (!chk) return; chk.feed(fr); chk.done = false; if (++frameN % 3 === 0) { const l = $('#live'); if (l) l.innerHTML = liveHTML({ check: { k: 'tune' } }, chk); } }, false); b.innerHTML = lab(true); }
+      try { await Mic.start((fr) => { if (!chk) return; chk.feed(fr); showLevel(fr); chk.done = false; if (++frameN % 3 === 0) { const l = $('#live'); if (l) l.innerHTML = liveHTML({ check: { k: 'tune' } }, chk); } }, false); b.innerHTML = lab(true); }
       catch (e) { chk = null; toast(T('The microphone is blocked. Allow it in the browser settings.', 'O microfone está bloqueado. Permita nas configurações do navegador.')); }
     },
     theme(b) { S.theme = b.dataset.t; UI.theme(S.theme); save(); render(); },

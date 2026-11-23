@@ -10,6 +10,7 @@ Read first: the newest entries in `PROGRESS.md`, then `docs/CONTEXT.md` and `doc
 - Serve: `python3 -m http.server 8765 --bind 127.0.0.1` in the repo root, then open `http://127.0.0.1:8765/`.
 - `?date=YYYY-MM-DD` overrides "today" (tests the one-dose-per-day gate). `?view=practice|goal|diary` opens a tab directly.
 - Test before every push: `python3 tests/smoke.py` (headless Playwright; must print "All checks passed.").
+- Touching `js/dsp.js` or `js/mic.js`? Also run `node tests/listening.test.js` (no browser needed; must print "All listening checks passed."). To hear what the checks make of a real recording: `python3 tests/fake-mic.py recording.wav` (replays it as the microphone) or `node tests/lib/trace.js recording.wav` (per-sound scores). Do not commit personal voice recordings: the repo is public.
 - Visual check: `python3 tests/shots.py <folder>` writes phone, desktop and dark-mode screenshots. Look at them.
 - Deploy: merge to `main`; GitHub Pages serves the repository root within a minute or two. Vercel (project `ukulele-master`) mirrors `main` and posts a preview link on every pull request; check the preview before merging.
 - Learner's record and app guide live in Notion; links are in `docs/RUNBOOK.md`. Update the Notion app guide's change history when shipping something the learner will notice.
