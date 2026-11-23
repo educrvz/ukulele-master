@@ -7,14 +7,14 @@
 | Live app (the one to use and install) | https://educrvz.github.io/ukulele-master/ |
 | Code | https://github.com/educrvz/ukulele-master (public, branch `main`) |
 | Main hosting | GitHub Pages, "deploy from branch": `main`, folder `/` |
-| Second host + branch previews | Vercel project `ukulele-master` in team `educrvzs-projects`, connected to the GitHub repo: https://ukulele-master.vercel.app/ |
+| Second host + branch previews | Vercel project `ukulele-master` in team `educrvzs-projects`, connected to the GitHub repo: https://ukulele-master-two.vercel.app/ (Vercel added "-two" because `ukulele-master.vercel.app` belongs to someone else) |
 | Local folder | `~/Documents/03 Software & AI/Claude/Code/ukulele-master` |
 | Learner's record | Notion: [Ukulele — lessons, visuals & progress](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a) |
 | App guide in Notion | [Ukulele Master app — guide & documentation](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94) |
 
 ### Two addresses, two separate sets of progress
 
-Saved progress belongs to the web address it was made on. Progress on `educrvz.github.io` does not appear on `ukulele-master.vercel.app`, and the reverse. Use the GitHub Pages address for real practice. Use Vercel to look at a branch before merging: every pushed branch and pull request gets its own preview link, posted on the pull request.
+Saved progress belongs to the web address it was made on. Progress on `educrvz.github.io` does not appear on `ukulele-master-two.vercel.app`, and the reverse. Use the GitHub Pages address for real practice. Use Vercel to look at a branch before merging: every pushed branch and pull request gets its own preview link, posted on the pull request.
 
 ### Vercel settings
 

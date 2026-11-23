@@ -94,7 +94,7 @@ PROGRESS.md            shared change log between models, newest first
 | Host | Address | Use |
 | --- | --- | --- |
 | GitHub Pages | <https://educrvz.github.io/ukulele-master/> | The real app. Install this one. |
-| Vercel | <https://ukulele-master.vercel.app/> | Mirror of `main`, plus a preview link for every branch and pull request. |
+| Vercel | <https://ukulele-master-two.vercel.app/> | Mirror of `main`, plus a preview link for every branch and pull request. |
 
 Progress is saved per address, so the two do not share it.
 
