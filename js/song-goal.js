@@ -72,18 +72,19 @@
 
     function setup() {
       const tomorrow = addDays(today(), 1);
-      return `<h2 class="page">🎯 ${T('Play a song by a date', 'Toque uma música até uma data')}</h2>
-        <p>${T('Choose a song. We turn it into tiny lessons and revise the plan after every check-in.', 'Escolha uma música. Ela vira pequenas aulas, e o plano é revisto a cada retorno.')}</p>
+      return `<h1 class="page">${T('Play a song by a date', 'Toque uma música até uma data')}</h1>
+        <p class="page-sub">${T('Choose a song. We turn it into tiny lessons and revise the plan after every check-in.', 'Escolha uma música. Ela vira pequenas aulas, e o plano é revisto a cada retorno.')}</p>
         <form id="goal-setup" class="card goal-form">
-          <label>${T('Song', 'Música')}<input name="title" required maxlength="120" placeholder="${T('Song title', 'Nome da música')}" list="song-suggestions"></label>
+          <label>${T('Song', 'Música')}<input name="title" required maxlength="120" placeholder="${T('Song title', 'Nome da música')}" list="song-suggestions" autocomplete="off"></label>
           <datalist id="song-suggestions">${catalog.map((s) => `<option value="${esc(s.title)}">`).join('')}</datalist>
-          <label>${T('Artist, if known', 'Artista, se souber')}<input name="artist" maxlength="100"></label>
+          <div><p class="hint">${T('Ready-to-play starter songs', 'Músicas iniciais prontas para tocar')}</p><div class="chips">${catalog.map((s) => `<button type="button" class="chip" data-goal-act="pick-song" data-title="${esc(s.title)}" data-artist="${esc(s.artist || '')}">${esc(s.title)}</button>`).join('')}</div></div>
+          <label>${T('Artist, if known', 'Artista, se souber')}<input name="artist" maxlength="100" autocomplete="off"></label>
           <div class="goal-fields"><label>${T('I want to play it by', 'Quero tocar até')}<input name="date" type="date" min="${today()}" value="${addDays(today(), 21)}" required></label>
           <label>${T('Minutes per day', 'Minutos por dia')}<select name="minutes"><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20">20</option></select></label></div>
           <fieldset><legend>${T('Quick skill check', 'Checagem rápida')}</legend>
-            <label class="checkrow"><input type="checkbox" name="tune"> ${T('I can tune my ukulele', 'Sei afinar o ukulele')}</label>
-            <label class="checkrow"><input type="checkbox" name="strum"> ${T('I can keep an even downstrum', 'Consigo manter batidas para baixo regulares')}</label>
-            <p class="hint">${T('Chords I can play clearly', 'Acordes que consigo tocar com som limpo')}</p><div class="goal-chords">${['C', 'G', 'Am', 'F', 'D', 'Em', 'Dm', 'A'].map((c) => `<label><input type="checkbox" name="chord" value="${c}"> ${esc(name(c))}</label>`).join('')}</div>
+            <div class="ticks"><label class="tick"><input type="checkbox" name="tune"> ${T('I can tune my ukulele', 'Sei afinar o ukulele')}</label>
+            <label class="tick"><input type="checkbox" name="strum"> ${T('I can keep an even downstrum', 'Consigo manter batidas para baixo regulares')}</label></div>
+            <p class="hint" style="margin:0">${T('Chords I can play clearly', 'Acordes que consigo tocar com som limpo')}</p><div class="ticks">${['C', 'G', 'Am', 'F', 'D', 'Em', 'Dm', 'A'].map((c) => `<label class="tick"><input type="checkbox" name="chord" value="${c}"> ${esc(name(c))}</label>`).join('')}</div>
           </fieldset><button class="btn big" type="submit">${T('Build my plan', 'Montar meu plano')}</button></form>
         <p class="hint">${T('Progress stays on this device. A source is needed before we can make song-specific lessons.', 'O progresso fica neste aparelho. Precisamos de uma fonte antes de criar aulas específicas da música.')}</p>`;
     }
@@ -124,15 +125,25 @@
       const percent = total ? Math.round(100 * earned / total) : 0;
       const forecast = !g.song ? '' : p.days === 0 ? T('Target date passed; choose a new date', 'A data passou; escolha outra') : p.remaining === 0 ? T('Ready for rehearsal', 'Pronto para ensaiar') : p.remaining <= p.capacity ? T('Beginner version is feasible', 'Versão iniciante é viável') : T('The date is tight; add minutes or move the date', 'A data está apertada; aumente os minutos ou mude a data');
       const src = g.song?.source ? `<a href="${esc(g.song.source)}" target="_blank" rel="noopener noreferrer">${T('Chord source', 'Fonte dos acordes')}</a>` : T('Source not supplied', 'Fonte não informada');
-      return `<section class="hero goal-hero"><p class="eyebrow">🎯 ${T('Song goal', 'Meta musical')}</p><h2>${esc(g.song?.title || g.title)}</h2><p>${esc(g.song?.artist || g.artist || '')}</p>
-        <p><b>${p.days}</b> ${T('days until', 'dias até')} <b>${dateLabel(g.date)}</b> · ${g.minutes} ${T('min/day', 'min/dia')}</p>
-        ${g.song ? `<div class="goal-meter"><span>${percent}% ${T('practiced steps', 'etapas praticadas')}</span><i style="width:${percent}%"></i></div><p>${forecast}</p>` : ''}</section>
-        ${g.song ? `<article class="card"><p>${src} · ${T('Key', 'Tom')}: ${esc(g.song.key || '—')}${g.song.originalKey && g.song.originalKey !== g.song.key ? ` (${T('transposed from', 'transposto de')} ${esc(g.song.originalKey)})` : ''} · ${g.song.beats}/4 · ${T('practice tempo', 'andamento de treino')} ${g.song.tempo} BPM ${g.song.strum ? `· ${esc(g.song.strum)}` : ''}</p>
+      return `<section class="hero goal-hero"><div class="txt" style="align-items:stretch"><p class="eyebrow">${T('Song goal', 'Meta musical')}</p><h2>${esc(g.song?.title || g.title)}</h2>${g.song?.artist || g.artist ? `<p>${esc(g.song?.artist || g.artist)}</p>` : ''}
+        <div class="count">${p.days} <small>${T('days until', 'dias até')} ${dateLabel(g.date)} · ${g.minutes} ${T('min/day', 'min/dia')}</small></div>
+        ${g.song ? `<div class="goal-meter" role="img" aria-label="${percent}%"><i style="width:${percent}%"></i></div><p><b>${percent}%</b> ${T('practiced steps', 'etapas praticadas')} · ${forecast}</p>` : ''}</div></section>
+        ${g.song ? `<article class="card"><div class="goal-facts"><span>${src}</span><span>${T('Key', 'Tom')}: ${esc(g.song.key || '—')}${g.song.originalKey && g.song.originalKey !== g.song.key ? ` (${T('transposed from', 'transposto de')} ${esc(g.song.originalKey)})` : ''}</span><span>${g.song.beats}/4</span><span>${T('practice tempo', 'andamento de treino')} ${g.song.tempo} BPM</span>${g.song.strum ? `<span>${esc(g.song.strum)}</span>` : ''}</div>
           <p>${T('Remaining focused practice', 'Treino focado restante')}: <b>${p.remaining} ${T('minutes', 'minutos')}</b>. ${T('One-session cram', 'Tudo de uma vez')}: ${Math.ceil(p.remaining / 60)}h ${p.remaining % 60}m. ${T('The last 30% of days are reserved for rehearsal and missed sessions.', 'Os últimos 30% dos dias ficam para ensaio e sessões perdidas.')}</p>
           ${p.remaining > p.capacity ? `<p class="goal-alert">${T(`At ${g.minutes} minutes/day, you need about ${p.requiredDays} practice days.`, `Com ${g.minutes} minutos/dia, você precisa de cerca de ${p.requiredDays} dias de treino.`)}</p>` : ''}
           <details><summary>${T('Upcoming plan', 'Próximas aulas')}</summary><ol>${p.schedule.slice(0, 12).map((s) => `<li>${dateLabel(s.date)} · ${esc(T(s.en, s.pt))}</li>`).join('')}</ol></details></article>
           ${lesson(g, p)}<article class="card"><h3>${T('Check-in history', 'Histórico de retornos')}</h3><ol class="goal-history">${g.history.slice(-8).reverse().map((h) => `<li>${dateLabel(h.date)} · ${esc(h.title)} · ${esc(T(({easy:'clear',ok:'needs practice',hard:'still hard'})[h.result],({easy:'limpo',ok:'precisa praticar',hard:'ainda difícil'})[h.result]))} · ${h.evidence === 'mic' ? T('microphone verified', 'verificado por microfone') : T('self-report', 'autodeclarado')}</li>`).join('') || `<li>${T('No practice reported yet.', 'Nenhum treino registrado ainda.')}</li>`}</ol></article>` : pendingSong(g)}
-        <div class="row wrap goal-tools"><button class="btn sm ghost" data-goal-act="edit">${T('Change date or minutes', 'Alterar data ou minutos')}</button><button class="btn sm ghost danger" data-goal-act="remove">${T('Start another song', 'Começar outra música')}</button></div>`;
+        <details class="card goal-edit"><summary>${T('Change date or minutes', 'Alterar data ou minutos')}</summary>
+          <form id="goal-edit"><div class="goal-fields"><label>${T('I want to play it by', 'Quero tocar até')}<input name="date" type="date" min="${today()}" value="${esc(g.date)}" required></label>
+          <label>${T('Minutes per day', 'Minutos por dia')}<select name="minutes">${[5, 10, 15, 20].map((m) => `<option value="${m}"${m === g.minutes ? ' selected' : ''}>${m}</option>`).join('')}</select></label></div>
+          <button class="btn sea" type="submit">${T('Save and replan', 'Salvar e replanejar')}</button></form></details>
+        <div class="row wrap goal-tools"><button class="btn sm ghost danger" data-goal-act="remove">${T('Start another song', 'Começar outra música')}</button></div>`;
+    }
+    function edit(form) {
+      const g = goal(), fd = new FormData(form), date = String(fd.get('date') || '');
+      if (!g || !date || daysBetween(today(), date) < 0) return;
+      g.date = date; g.minutes = Math.max(5, Math.min(20, Number(fd.get('minutes')) || g.minutes));
+      save(); render();
     }
 
     function view() { return goal() ? dashboard(goal()) : setup(); }
@@ -144,6 +155,11 @@
       save(); render();
     }
     async function action(b) {
+      if (b.dataset.goalAct === 'pick-song') {
+        const f = document.querySelector('#goal-setup');
+        if (f) { f.elements.title.value = b.dataset.title; f.elements.artist.value = b.dataset.artist || ''; f.querySelectorAll('[data-goal-act="pick-song"]').forEach((x) => x.classList.toggle('on', x === b)); }
+        return;
+      }
       const g = goal(); if (!g) return;
       if (b.dataset.goalAct === 'play') {
         const p = plan(g, today()), s = p.next;
@@ -196,19 +212,14 @@
         g.history.push({ date: today(), id: s.id, title: s.en, result, evidence: 'self' });
         save(); render();
       }
-      if (b.dataset.goalAct === 'edit') {
-        const date = promptInput(T('New target date (YYYY-MM-DD)', 'Nova data (AAAA-MM-DD)'), g.date);
-        if (date && daysBetween(today(), date) >= 0) { g.date = date; const minutes = promptInput(T('Minutes per day (5, 10, 15 or 20)', 'Minutos por dia (5, 10, 15 ou 20)'), String(g.minutes)); g.minutes = Math.max(5, Math.min(20, Number(minutes) || g.minutes)); save(); render(); }
-      }
       if (b.dataset.goalAct === 'remove' && confirm(T('Replace this song goal? Its check-in history will be removed from this device.', 'Trocar esta meta? O histórico de retornos desta música será apagado deste aparelho.'))) { Player.stop(); if (listening) { listening = false; await Mic.stop(); } state().goal = null; save(); render(); }
     }
-    function promptInput(label, value) { return window.prompt(label, value); }
     function report() {
       const g = goal(); if (!g) return '';
       const p = plan(g, today());
       return [`Song goal: ${g.title}${g.artist ? ` — ${g.artist}` : ''}`, `Deadline: ${g.date}; ${g.minutes} min/day`, `Arrangement: ${g.song ? g.song.source || 'no source' : 'pending'}`, `Remaining focused practice: ${p.remaining} min`, ...g.history.slice(-10).map((h) => `${h.date}: ${h.title} — ${h.result} (${h.evidence || 'self'})`) ].join('\n');
     }
-    return { view, submit, action, report, stop: () => { listening = false; }, plan: () => goal() ? plan(goal(), today()) : null };
+    return { view, submit, edit, action, report, stop: () => { listening = false; }, plan: () => goal() ? plan(goal(), today()) : null };
   }
   window.SongGoal = { init, parseSong, songSteps, plan };
 })();

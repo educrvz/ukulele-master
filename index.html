@@ -5,34 +5,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ukulele Master — doses homeopáticas</title>
 <meta name="description" content="Learn ukulele five minutes a day, in English and Portuguese. Clear diagrams, play-along sound and microphone checks.">
-<meta name="theme-color" content="#0f7b83">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#fff6e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1a20" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ukulele">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="./"><span>🌺</span> Ukulele Master</a>
-  <div class="meta"><span title="streak">🔥 <b id="streak">0</b></span><span title="XP">⭐ <b id="xp">0</b></span><button id="lang" aria-label="Language / Idioma">PT</button></div>
+  <a class="brand" href="./"><img src="icons/icon.svg" alt="" width="30" height="30"> Ukulele Master</a>
+  <div class="meta">
+    <span class="stat fire" title="Streak"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3.500 5 5.500 5 10a5 5 0 0 1-10 0c0-1.800 .800-3 1.500-4 .500 1.500 1.500 2 2 2-.500-3 0-6 1.500-8z"/></svg><b id="streak">0</b></span>
+    <span class="stat xp" title="XP"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.700 5.600 6.100.800-4.500 4.300 1.100 6.100L12 16.900 6.600 19.800l1.100-6.100L3.200 9.400l6.100-.800z"/></svg><b id="xp">0</b></span>
+    <button id="lang" aria-label="Language / Idioma">PT</button>
+  </div>
 </header>
 <main id="view"></main>
-<nav>
-  <button data-view="home" id="nav-home">Journey</button>
-  <button data-view="goal" id="nav-goal">Song goal</button>
-  <button data-view="practice" id="nav-practice">Practice</button>
-  <button data-view="diary" id="nav-diary">Diary</button>
+<nav class="tabs" aria-label="Main" hidden>
+  <button data-view="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.500 12 4l9 7.500"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg><span>Today</span></button>
+  <button data-view="goal"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.200" fill="currentColor"/></svg><span>Song</span></button>
+  <button data-view="practice"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span>Practice</span></button>
+  <button data-view="diary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg><span>Diary</span></button>
 </nav>
 <dialog id="peek"></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<noscript><p style="padding:24px">Ukulele Master needs JavaScript. · O Ukulele Master precisa de JavaScript.</p></noscript>
 <script src="js/dsp.js"></script>
 <script src="js/data.js"></script>
 <script src="js/diagrams.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/mic.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/pwa.js"></script>
 <script src="js/song-catalog.js"></script>
 <script src="js/song-goal.js"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
