@@ -52,6 +52,14 @@ python3 tests/smoke.py
 python3 tests/shots.py /tmp/uke-shots
 ```
 
+The microphone logic has its own tests, which need only Node:
+
+```bash
+node tests/listening.test.js
+```
+
+They push synthetic room noise, hum, taps, a voice-like sound and plucked-string strums through the real listening code, and fail if noise or talking is counted as playing. `python3 tests/fake-mic.py recording.wav` replays any WAV as the microphone in a headless browser.
+
 `smoke.py` runs 26 end-to-end checks (onboarding, all 48 doses in both languages, a full lesson, the chord-change game, song goal, dark mode, offline). `shots.py` saves screenshots of every screen for phone, desktop and dark mode.
 
 ## Folder layout

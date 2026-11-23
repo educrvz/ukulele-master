@@ -82,12 +82,24 @@
   };
 
   /* Onset (strum / pluck) detector based on spectral flux of successive magnitude frames. */
+  /* The flux of steady noise is not zero: frame to frame, random bins rise by about a quarter of the total, all the
+     time. A fixed threshold therefore fires on any room that is not silent. So the threshold adapts: an onset must
+     stand well above the flux this room has been producing over the last second, and above its background level. */
   DSP.OnsetDetector = function (opts) {
     this.prev = null;
     this.lastT = -1e9;
-    this.ratio = (opts && opts.ratio) || 0.3;
-    this.refractory = (opts && opts.refractory) || 140;
-    this.gate = (opts && opts.gate) || 0.006;
+    this.ratio = (opts && opts.ratio) || 0.35;      // minimum rise, as a share of the previous frame's energy
+    this.factor = (opts && opts.factor) || 2.2;     // …and this many times the recent typical rise
+    this.refractory = (opts && opts.refractory) || 120;
+    this.gate = (opts && opts.gate) || 0.004;       // absolute loudness below which nothing counts
+    this.hist = [];                                 // recent flux ratios, about one second
+    this.floor = 0;                                 // background loudness of this room
+  };
+  DSP.OnsetDetector.prototype.track = function (rms) {
+    // Follows the quietest level heard: drops quickly, creeps up slowly (doubles in about 40 s) if the room gets louder.
+    if (!this.floor) this.floor = Math.max(rms, 1e-4);
+    else this.floor = rms < this.floor ? Math.max(1e-4, 0.7 * this.floor + 0.3 * rms) : this.floor * 1.0005;
+    return this.floor;
   };
   DSP.OnsetDetector.prototype.process = function (mag, rms, tMs, k0, k1) {
     let flux = 0, prevE = 0;
@@ -101,10 +113,44 @@
       this.prev = new Float32Array(mag.length);
     }
     this.prev.set(mag);
-    if (rms < this.gate) return false;
+    const floor = this.track(rms);
+    const r = prevE > 0 ? flux / prevE : 0;
+    const h = this.hist, sorted = h.slice().sort((a, b) => a - b);
+    const typical = sorted.length ? sorted[sorted.length >> 1] : 0;
+    h.push(r); if (h.length > 33) h.shift();
+    this.last = { ratio: r, typical };
+    if (sorted.length < 8) return false;            // first quarter second: still learning the room
+    if (rms < this.gate || rms < 1.6 * floor) return false;
     if (tMs - this.lastT < this.refractory) return false;
-    if (flux > this.ratio * prevE + 1e-4) { this.lastT = tMs; return true; }
+    if (r > Math.max(this.ratio, this.factor * typical + 0.1)) { this.lastT = tMs; return true; }
     return false;
+  };
+
+  /* 0 = a few clear tones (strings), 1 = hiss. Geometric mean over arithmetic mean of the spectrum. */
+  DSP.flatness = function (mag, k0, k1) {
+    let ls = 0, s = 0;
+    for (let k = k0; k <= k1; k++) { const m = mag[k] + 1e-9; ls += Math.log(m); s += m; }
+    const n = k1 - k0 + 1;
+    return s > 0 ? Math.exp(ls / n) / (s / n) : 1;
+  };
+
+  /* Turns raw microphone data into one "frame" for the listening checks. Shared by js/mic.js (live) and the
+     Node tests (offline), so both hear exactly the same thing. mag is a linear magnitude spectrum of tbuf. */
+  DSP.FrameAnalyzer = function (sr, fftSize) {
+    this.sr = sr;
+    const binHz = sr / fftSize;
+    this.k0 = Math.ceil(150 / binHz);
+    this.k1 = Math.floor(5000 / binHz);
+    this.onset = new DSP.OnsetDetector();
+  };
+  DSP.FrameAnalyzer.prototype.frame = function (tbuf, mag, tMs, chroma) {
+    const p = DSP.detectPitch(tbuf, this.sr);
+    const onset = this.onset.process(mag, p.rms, tMs, this.k0, this.k1);
+    return {
+      t: tMs, rms: p.rms, clarity: p.clarity, freq: p.freq, midi: p.freq ? DSP.freqToMidi(p.freq) : 0,
+      onset, floor: this.onset.floor, flat: DSP.flatness(mag, this.k0, this.k1),
+      chroma,
+    };
   };
 
   /* Evenness of a list of onset times (ms): returns {bpm, cv}. */

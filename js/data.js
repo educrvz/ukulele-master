@@ -470,6 +470,9 @@
       demo: { seq: ['C', 'G', 'Am', 'F'], pat: 'D.XU.UXU' }, check: { k: 'chords', seq: ['C', 'G', 'Am', 'F', 'C', 'G', 'Am', 'F'] } },
   ];
 
+  // A strum-count check listens for the chords of its own exercise, so talking or room noise is not counted.
+  for (const d of DOSES) if (d.check && d.check.k === 'strum' && d.demo && d.demo.seq) d.check.chords = [...new Set(d.demo.seq)];
+
   // After the journey: one generated challenge per day, seeded by the date.
   function dailyDose(dateStr) {
     let h = 0;

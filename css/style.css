@@ -265,6 +265,10 @@ figure { margin: 0; } figcaption { font-size: .8rem; color: var(--soft); text-al
 .gauge .zone { position: absolute; left: 40%; width: 20%; top: 0; bottom: 0; background: var(--leaf-soft); border-inline: 2px solid var(--leaf); } .gauge .needle { position: absolute; top: 3px; bottom: 3px; width: 6px; margin-left: -3px; background: var(--coral); border-radius: 3px; transition: left .08s linear; } .needle.idle { opacity: .25; }
 .count-big { text-align: center; font: 800 3rem var(--disp); } .count-big b { color: var(--coral); }
 .dots { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; } .dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--leaf); }
+.lvl { position: relative; align-self: stretch; height: 8px; border-radius: 99px; background: var(--line); margin: 14px 0 18px; }
+.lvl i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--soft); transition: width .06s linear; } .lvl i.hot { background: var(--leaf); }
+.lvl b { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1px; left: 0; border-radius: 2px; background: var(--coral); }
+.lvl span { position: absolute; left: 0; top: 11px; font-size: .68rem; font-weight: 700; color: var(--soft); }
 .listening { animation: glow 1.4s infinite; } @keyframes glow { 50% { box-shadow: 0 4px 0 var(--coral-d), 0 0 0 10px color-mix(in srgb, var(--coral) 18%, transparent); } }
 
 /* ───────── practice */
