@@ -1,5 +1,11 @@
 # Progress log
 
+## 2026-11-23 — Vercel address corrected, folder flattened (Claude Code)
+- **Changed:** docs now give the real Vercel address, https://ukulele-master-two.vercel.app/ (commit a8e0ab7). The first version of the docs said `ukulele-master.vercel.app`, which belongs to someone else. The local repo was moved up one level, so it is now `~/Documents/03 Software & AI/Claude/Code/ukulele-master`.
+- **Why:** the wrong address would have sent readers to a stranger's site; the doubled folder was confusing.
+- **Checks:** `tests/smoke.py` 26/26 against the Vercel address; `git status` clean and in sync with `origin/main` after the move.
+- **Unfinished:** Edu still has to approve Notion's GitHub connection inside Notion if he wants rich repo previews. Real-phone install and real-ukulele microphone checks remain untried.
+
 ## 2026-11-23 — Linked GitHub, Vercel, Notion and the local folder (Claude Fable 5.2)
 - **GitHub repo settings:** website set to the live Pages link, new description, topics (ukulele, pwa, music-education, web-audio, vanilla-javascript, portuguese).
 - **Vercel:** project `ukulele-master` created in team `educrvzs-projects` with the CLI (the Vercel connector returned 403 on create) and connected to the GitHub repo. `main` deploys to production; branches and pull requests get preview links. Hobby plan, nothing billable, no tokens created.
