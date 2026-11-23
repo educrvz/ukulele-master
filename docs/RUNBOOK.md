@@ -4,11 +4,24 @@
 
 | Thing | Location |
 | --- | --- |
-| Live app | https://educrvz.github.io/ukulele-master/ |
+| Live app (the one to use and install) | https://educrvz.github.io/ukulele-master/ |
 | Code | https://github.com/educrvz/ukulele-master (public, branch `main`) |
-| Hosting | GitHub Pages, "deploy from branch": `main`, folder `/` |
-| Local folder | `~/Documents/03 Software & AI/Claude/Code/ukulele-master/ukulele-master` |
-| Learner's record | Notion: *Ukulele — lessons, visuals & progress* (app docs are a sub-page) |
+| Main hosting | GitHub Pages, "deploy from branch": `main`, folder `/` |
+| Second host + branch previews | Vercel project `ukulele-master` in team `educrvzs-projects`, connected to the GitHub repo: https://ukulele-master.vercel.app/ |
+| Local folder | `~/Documents/03 Software & AI/Claude/Code/ukulele-master` |
+| Learner's record | Notion: [Ukulele — lessons, visuals & progress](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a) |
+| App guide in Notion | [Ukulele Master app — guide & documentation](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94) |
+
+### Two addresses, two separate sets of progress
+
+Saved progress belongs to the web address it was made on. Progress on `educrvz.github.io` does not appear on `ukulele-master.vercel.app`, and the reverse. Use the GitHub Pages address for real practice. Use Vercel to look at a branch before merging: every pushed branch and pull request gets its own preview link, posted on the pull request.
+
+### Vercel settings
+
+- Framework: none (static files, no build command, output is the repository root).
+- Production branch: `main`. Every push to `main` deploys to production; other branches get preview deployments.
+- Plan: Hobby (free). No paid add-ons, no spend limit needed because nothing here can bill. Do not enable paid features without asking Edu.
+- `.vercel/` (local link file) is git-ignored. Re-link a fresh clone with `vercel link --yes --project ukulele-master --scope educrvzs-projects`.
 
 ## Run locally
 
@@ -62,6 +75,6 @@ python3 tools/make-icons.py
 
 | Credential | Scope | Expiry | Notes |
 | --- | --- | --- | --- |
-| None | — | — | The app has no backend, API keys or tokens. Deploying uses Edu's normal GitHub login (`gh`). |
+| None | — | — | The app has no backend, API keys or tokens. Deploying uses Edu's normal GitHub login (`gh`); Vercel deploys through its GitHub connection, and the `vercel` CLI uses Edu's own login. No tokens were created. |
 
 If a paid service is ever added (for example automatic song lookup), follow Edu's limits: an expiry, least scope, and a hard cap of about US$ 2 per day, recorded in this table.

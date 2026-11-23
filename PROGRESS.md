@@ -1,5 +1,13 @@
 # Progress log
 
+## 2026-11-23 — Linked GitHub, Vercel, Notion and the local folder (Claude Fable 5.2)
+- **GitHub repo settings:** website set to the live Pages link, new description, topics (ukulele, pwa, music-education, web-audio, vanilla-javascript, portuguese).
+- **Vercel:** project `ukulele-master` created in team `educrvzs-projects` with the CLI (the Vercel connector returned 403 on create) and connected to the GitHub repo. `main` deploys to production; branches and pull requests get preview links. Hobby plan, nothing billable, no tokens created.
+- **Notion ↔ GitHub:** README and RUNBOOK link to the two Notion pages; the Notion app guide links to the repo, pull request, Vercel and the docs files.
+- **Local folder:** flattened from `ukulele-master/ukulele-master` to `ukulele-master` (see the RUNBOOK path).
+- **Note:** progress is saved per web address, so Pages and Vercel do not share it. Pages stays the address to install.
+- **Unverified / needs Edu:** Notion's own GitHub connection (rich previews of repo links) must be approved by Edu inside Notion; it cannot be done from here.
+
 ## 2026-11-23 — Version 2: redesign, installable PWA, documentation (Claude Fable 5.2)
 - **Redesign.** New design system in `css/style.css` (tokens, light and dark themes, automatic or chosen in Diary). Floating tab bar with icons (Today, Song, Practice, Diary). Home shows the week strip, today's dose with its chord chart, song goal and level cards, and the journey as collapsible islands with a winding path instead of one 9,000 px list.
 - **Lessons are easier to play.** Full-screen focus mode with a Look / Play / Prove progress bar, numbered step cards, and a sticky dock holding play-along, metronome, tempo, four-minute timer and the next button, so nothing needs scrolling with a ukulele in hand. The screen stays awake during a lesson. Confetti, a chime and a short vibration on completion; level-up notice.

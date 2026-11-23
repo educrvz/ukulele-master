@@ -86,7 +86,17 @@ PROGRESS.md            shared change log between models, newest first
 - [docs/RUNBOOK.md](docs/RUNBOOK.md) — run, test, deploy, roll back.
 - [docs/decisions/](docs/decisions/) — lasting choices and why.
 - [PROGRESS.md](PROGRESS.md) — what changed, when, and what is still unverified.
-- Learner's home page and class log: Notion, *Ukulele — lessons, visuals & progress*.
+- Learner's home page and class log (private Notion): [Ukulele — lessons, visuals & progress](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a).
+- App guide for the learner (private Notion): [Ukulele Master app — guide & documentation](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94).
+
+## Hosting
+
+| Host | Address | Use |
+| --- | --- | --- |
+| GitHub Pages | <https://educrvz.github.io/ukulele-master/> | The real app. Install this one. |
+| Vercel | <https://ukulele-master.vercel.app/> | Mirror of `main`, plus a preview link for every branch and pull request. |
+
+Progress is saved per address, so the two do not share it.
 
 ## Honest limits
 
