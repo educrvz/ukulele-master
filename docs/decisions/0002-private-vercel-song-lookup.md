@@ -4,7 +4,7 @@ Date: 2026-11-24
 
 ## Decision
 
-Serve the app from the existing protected Vercel project. Add one serverless route at `/api/song` that searches a public chord index, extracts short chord-only sections, and links the source. If that path fails, a model with web search can try; the current paid model requires credits, so the direct path supplies results without a purchase. Keep the AI Gateway key in a production secret, with a 90-day expiry and a $2 daily key budget; also set a $2 daily project budget. The browser source remains buildless and dependency-free. Redirect the old public GitHub Pages URL to the protected app and transfer local progress through a URL fragment.
+Serve the app from the existing protected Vercel project. Add one serverless route at `/api/song` that searches a public chord index, extracts short chord-only sections, and links the source. If that path fails, `openai/gpt-5-mini` can try with web search; it works on the current free AI Gateway tier and can decline when it lacks a reliable chart. Keep the AI Gateway key in a production secret, with a 90-day expiry and a $2 daily key budget; also set a $2 daily project budget. The browser source remains buildless and dependency-free. Redirect the old public GitHub Pages URL to the protected app and transfer local progress through a URL fragment.
 
 ## Reason
 

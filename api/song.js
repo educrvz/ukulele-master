@@ -1,5 +1,5 @@
 const GATEWAY = 'https://ai-gateway.vercel.sh/v1/responses';
-const MODEL = 'openai/gpt-5.4-mini';
+const MODEL = 'openai/gpt-5-mini';
 const CHORDS = 'Am, F, C, G, Dm, Em, A7, G7, C7, D, A, E7, D7, Bb, Bm, B';
 const { findSong } = require('../lib/chord-source');
 
@@ -29,7 +29,8 @@ module.exports = async function handler(req, res) {
         model: MODEL,
         input: `Find a trustworthy, directly linked chord source for the song the learner typed: ${JSON.stringify({ title, artist })}. Search the web. Correct obvious spelling mistakes in the song and artist names. Return ONLY one JSON object, no markdown and no lyrics. Fields: title, artist, source (plain HTTPS URL to the actual chord page, not a search result), key, tempo (number, estimate if unknown), beats (3 or 4), optional strum, sections (array of {name, chords:[...]} in song order). Use only these ukulele chords: ${CHORDS}. Transpose if necessary and say the original key in originalKey. Preserve meaningful verse/chorus differences. Keep sections short. Never invent an arrangement or a source. If no reliable chord source is found, return {"error":"No reliable chord source found"}.`,
         tools: [{ type: 'web_search', search_context_size: 'low' }],
-        max_output_tokens: 1200,
+        reasoning: { effort: 'low' },
+        max_output_tokens: 1600,
       }),
     });
     if (!result.ok) return res.status(502).json({ error: 'Song search unavailable' });
