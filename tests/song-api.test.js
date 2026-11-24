@@ -21,5 +21,20 @@ const html = (data) => `<div data-content="${JSON.stringify({ store: { page: { d
   assert.deepEqual(res.body.song.sections[0].chords, ['C', 'F', 'C']);
   assert.deepEqual(res.body.song.sections[1].chords, ['C', 'G', 'F', 'C']);
   assert.equal(res.headers['Cache-Control'], 'no-store');
-  console.log('Sourced song lookup passed.');
+  process.env.AI_GATEWAY_API_KEY = 'test-only';
+  global.fetch = async (url, options) => {
+    if (String(url).includes('/search.php')) throw Error('Source unavailable');
+    assert.equal(url, 'https://ai-gateway.vercel.sh/v1/responses');
+    assert.equal(options.headers.Authorization, 'Bearer test-only');
+    const request = JSON.parse(options.body);
+    assert.equal(request.model, 'openai/gpt-5-mini');
+    assert.equal(request.tools[0].type, 'web_search');
+    assert.equal(request.reasoning.effort, 'low');
+    return { ok: true, json: async () => ({ output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ title: 'Rainbow Connection', artist: 'Kermit the Frog', source: 'https://example.org/rainbow-connection', sections: [{ name: 'Verse', chords: ['C', 'F', 'G'] }] }) }] }] }) };
+  };
+  const fallback = reply();
+  await handler({ method: 'POST', body: { title: 'Rainbow Connection', artist: 'Kermit the Frog' } }, fallback);
+  assert.equal(fallback.code, 200);
+  assert.equal(fallback.body.song.title, 'Rainbow Connection');
+  console.log('Sourced song lookup and model fallback contracts passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

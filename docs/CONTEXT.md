@@ -22,7 +22,7 @@ Plain HTML, CSS and JavaScript served as static files from Vercel, with one Verc
 - Views are functions in `js/app.js` that return HTML strings; one delegated click handler dispatches `data-act` attributes to the `A` action table. Song Goal uses `data-goal-act`.
 - Sound is synthesised with the Web Audio API. Microphone checks use pitch detection, onset detection and chroma matching from `js/dsp.js`.
 - A service worker (`sw.js`) precaches every file and serves network-first, so the app works offline and still picks up deploys.
-- `api/song.js` first searches public Ultimate Guitar chord charts through `lib/chord-source.js` and extracts short chord sequences on the server; it never returns lyrics. If no usable chart is found, it can try Vercel AI Gateway with web search. The gateway key is a Vercel production secret. The daily $2 gateway key and project budgets constrain spending. The paid model fallback currently needs AI Gateway credits; direct chord search works without them.
+- `api/song.js` first searches public Ultimate Guitar chord charts through `lib/chord-source.js` and extracts short chord sequences on the server; it never returns lyrics. If no usable chart is found, it tries `openai/gpt-5-mini` through Vercel AI Gateway with web search and accepts an explicit “no reliable source” answer. The gateway key is a Vercel production secret. The daily $2 gateway key and project budgets constrain spending. Direct chord search has no model charge.
 
 ## Data (all on the device)
 
