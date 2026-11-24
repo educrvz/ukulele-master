@@ -15,7 +15,7 @@ Learn ukulele in small daily doses, in English and Portuguese. One idea, one pic
 | --- | --- |
 | **Today** | Today's five-minute dose, this week's practice days, your song goal and level, and the journey: 48 doses on 8 islands, then a generated daily challenge. One new dose per day; replays are free. |
 | **Lesson** | Full-screen, three steps: **Look** (one idea with the chord diagram), **Play** (numbered steps, play-along sound, metronome, four-minute timer; the screen stays awake), **Prove** (microphone check, or an honest self-report). |
-| **Song** | Pick a song and a date. The app searches for a chord source, turns the song into tiny lessons, and replans after every check-in. Four starter songs work offline. |
+| **Song** | Pick a song and a date. The app searches for a chord source, turns the song into tiny lessons, and replans after every check-in. Five starter songs work offline. |
 | **Practice** | Tuner, metronome, the one-minute chord-change game, and the full chord library. |
 | **Diary** | Streak, calendar, recordings, practice log, progress report for Notion, backup export/import, light/dark appearance, install. |
 
@@ -85,7 +85,8 @@ js/
 icons/                 app icons (SVG source + generated PNGs)
 tools/make-icons.py    regenerates the PNG icons from icons/icon.svg
 tests/                 smoke test and screenshot script
-api/song.js            server-side song search through Vercel AI Gateway
+api/song.js            server-side lookup route and capped model fallback
+lib/chord-source.js    direct chord-source search and short section extraction
 docs/                  CONTEXT.md, RUNBOOK.md, decisions/, screenshots/
 AGENTS.md              rules for AI coding agents (CLAUDE.md / GEMINI.md point here)
 PROGRESS.md            shared change log between models, newest first

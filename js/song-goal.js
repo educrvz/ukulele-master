@@ -177,7 +177,7 @@
     function submit(form) {
       const fd = new FormData(form), title = String(fd.get('title') || '').trim(), date = String(fd.get('date') || '');
       if (!title || daysBetween(today(), date) < 0) return;
-      const found = catalog.find((s) => norm(s.title) === norm(title));
+      const found = catalog.find((s) => sameTitle(s.title, title));
       lookupStarted = false; lookupError = '';
       state().goal = { title, artist: String(fd.get('artist') || '').trim(), date, minutes: Math.max(5, Math.min(20, Number(fd.get('minutes')) || 5)), skill: { tune: fd.has('tune'), strum: fd.has('strum'), chords: fd.getAll('chord') }, song: found ? parseSong(found) : null, mastery: {}, history: [] };
       save(); render();

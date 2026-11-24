@@ -1,0 +1,14 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const script = fs.readFileSync('js/migrate.js', 'utf8');
+const saved = JSON.stringify({ goal: { title: 'Three Little Birds' }, lang: 'pt' });
+let destination = '';
+vm.runInNewContext(script, { location: { hostname: 'educrvz.github.io', replace(url) { destination = url; } }, localStorage: { getItem: () => saved } });
+assert.ok(destination.startsWith('https://ukulele-master-two.vercel.app/#uke-import='));
+let imported = '';
+let cleaned = false;
+vm.runInNewContext(script, { location: { hostname: 'ukulele-master-two.vercel.app', hash: new URL(destination).hash, pathname: '/', search: '' }, localStorage: { getItem: () => null, setItem(key, value) { assert.equal(key, 'uke-master-v1'); imported = value; } }, history: { replaceState() { cleaned = true; } } });
+assert.equal(imported, saved);
+assert.equal(cleaned, true);
+console.log('Progress transfer passed.');

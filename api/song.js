@@ -1,6 +1,7 @@
 const GATEWAY = 'https://ai-gateway.vercel.sh/v1/responses';
 const MODEL = 'openai/gpt-5.4-mini';
 const CHORDS = 'Am, F, C, G, Dm, Em, A7, G7, C7, D, A, E7, D7, Bb, Bm, B';
+const { findSong } = require('../lib/chord-source');
 
 function responseText(body) {
   return (body.output || []).flatMap((part) => part.type === 'message' ? part.content || [] : [])
@@ -12,10 +13,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const title = String(req.body?.title || '').trim().slice(0, 120);
   const artist = String(req.body?.artist || '').trim().slice(0, 100);
-  if (!title || !process.env.AI_GATEWAY_API_KEY) return res.status(503).json({ error: 'Lookup unavailable' });
+  if (!title) return res.status(400).json({ error: 'Song title required' });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
   try {
+    try {
+      const sourced = await findSong(title, artist, controller.signal);
+      if (sourced) return res.status(200).json({ song: sourced });
+    } catch { /* Search site unavailable; try the model with web search. */ }
+    if (!process.env.AI_GATEWAY_API_KEY) return res.status(404).json({ error: 'No reliable chord source found' });
     const result = await fetch(GATEWAY, {
       method: 'POST', signal: controller.signal,
       headers: { Authorization: `Bearer ${process.env.AI_GATEWAY_API_KEY}`, 'Content-Type': 'application/json' },
