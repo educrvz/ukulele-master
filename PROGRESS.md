@@ -1,5 +1,12 @@
 # Progress log
 
+## 2026-11-24 — Private in-app song lookup and Gemini import fix (Codex)
+- **Changed:** Unknown song goals search for a trustworthy chord source inside the app through a server-side Vercel AI Gateway route and build the existing adaptive practice plan. The manual importer now accepts corrected song spelling and Markdown-formatted source URLs such as Edu's Gemini response. Errors distinguish a title mismatch from malformed JSON or chords. The former public GitHub Pages address redirects to the protected Vercel app and transfers local practice state in a URL fragment.
+- **Why:** Edu's "Three Little Birds" response failed because his typed title differed after correction and Gemini produced Markdown URL syntax with invalid JSON escapes. Copying prompts between apps was too cumbersome.
+- **Credentials:** 90-day AI Gateway key, production secret only; $2/day key and project budgets, 50/75/100% alerts on the key. No automatic top-up. See RUNBOOK for scope, expiry and rotation.
+- **Checks:** `python3 tests/smoke.py` passed, including the pasted Gemini case, an in-app lookup response, and offline mode; `node tests/song-api.test.js` passed. Live search and private access still need verification on the deployed Vercel URL.
+- **Unfinished:** Verify Vercel preview/production, confirm a real source result for Three Little Birds, update the Notion app guide, and add Edu's named family accounts when supplied. Old-origin IndexedDB recordings do not transfer.
+
 ## 2026-11-23 — Microphone no longer counts noise or talking (Claude Code)
 - **Problem (reported by Edu with a screen capture):** dose 6 reached 16/16 strums with nobody playing; the tuner needle also moved on its own.
 - **Root cause:** `DSP.OnsetDetector` used a fixed threshold. Steady room noise changes from frame to frame by about a quarter of its own energy, which is right at the old 0.3 threshold, so any room louder than a very low fixed gate (rms 0.006) produced about five "strums" a second. Nothing checked that a sound was a ukulele, so talking counted too. The tuner accepted any single frame with a pitch.

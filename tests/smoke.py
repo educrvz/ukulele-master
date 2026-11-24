@@ -96,6 +96,29 @@ with sync_playwright() as p:
     pg.click('#goal-edit button[type="submit"]')
     check('goal edit saves minutes', pg.evaluate("__uke.S().goal.minutes") == 15)
 
+    # Gemini's actual response: corrected title, Markdown URL, and invalid backslash-colon escape.
+    pg.on('dialog', lambda dialog: dialog.accept())
+    pg.click('[data-goal-act="remove"]')
+    pg.fill('#goal-setup input[name="title"]', "Three little bird's")
+    pg.fill('#goal-setup input[name="artist"]', 'Bom markey')
+    pg.click('#goal-setup button[type="submit"]')
+    gemini = r'''{"title":"Three Little Birds","artist":"Bob Marley & The Wailers","source":"[https\://ukutabs.com/b/bob-marley/three-little-birds/]\(https\://ukutabs.com/b/bob-marley/three-little-birds/)","key":"C","tempo":76,"beats":4,"sections":[{"name":"Chorus","chords":["C","F","C"]},{"name":"Verse","chords":["C","G","F","C"]}]}'''
+    pg.locator('.goal-hero').wait_for()
+    pg.locator('details:has(#goal-json) summary').click()
+    pg.fill('#goal-json', gemini)
+    pg.click('[data-goal-act="import"]')
+    check('Gemini response imports with corrected title', pg.evaluate("__uke.S().goal.song?.title") == 'Three Little Birds')
+    check('Markdown source becomes a direct URL', pg.evaluate("__uke.S().goal.song?.source") == 'https://ukutabs.com/b/bob-marley/three-little-birds/')
+
+    # An unknown song is looked up in-app and its plan is built without pasting JSON.
+    pg.click('[data-goal-act="remove"]')
+    pg.evaluate("""() => { const original = window.fetch; window.fetch = (url, options) =>
+      String(url).includes('/api/song') ? Promise.resolve(new Response(JSON.stringify({song:{title:'Three Little Birds',artist:'Bob Marley & The Wailers',source:'https://ukutabs.com/b/bob-marley/three-little-birds/',key:'C',tempo:76,beats:4,sections:[{name:'Chorus',chords:['C','F','C']}]}}),{status:200,headers:{'Content-Type':'application/json'}})) : original(url, options); }""")
+    pg.fill('#goal-setup input[name="title"]', "Three little bird's")
+    pg.click('#goal-setup button[type="submit"]')
+    pg.wait_for_function("__uke.S().goal?.song?.title === 'Three Little Birds'")
+    check('automatic lookup builds song plan', pg.locator('.goal-lesson').count() == 1)
+
     # diary, theme, report
     pg.click('.tabs [data-view="diary"]')
     pg.click('[data-act="theme"][data-t="dark"]')

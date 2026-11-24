@@ -7,7 +7,12 @@
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const daysBetween = (a, b) => Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 86400000);
   const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
-  const validUrl = (s) => { try { const u = new URL(s); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; } };
+  const validUrl = (s) => {
+    const candidate = String(s || '').replace(/\\([:()])/g, '$1').match(/https:\/\/[^\s\])]+/i)?.[0];
+    try { const u = new URL(candidate); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; }
+  };
+  const readJson = (value) => JSON.parse(String(value).trim().replace(/\\([:()])/g, '$1').replace(/^```(?:json)?\s*|\s*```$/gi, ''));
+  const sameTitle = (a, b) => norm(a).replace(/ /g, '') === norm(b).replace(/ /g, '');
 
   function parseSong(raw) {
     if (!raw || typeof raw !== 'object') throw Error('song');
@@ -68,6 +73,10 @@
     const dateLabel = (s) => new Date(s + 'T12:00:00').toLocaleDateString(lang() === 'pt' ? 'pt-BR' : 'en-GB', { day: 'numeric', month: 'short' });
     const goal = () => state().goal;
     let listening = false;
+    let lookupStarted = false;
+    let lookupBusy = false;
+    let lookupError = '';
+    const onlineLookup = location.protocol === 'https:' && location.hostname !== 'educrvz.github.io' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     const prompt = (g) => `Find a trustworthy chord source for "${g.title}"${g.artist ? ` by ${g.artist}` : ''}. Return ONLY a JSON object, no markdown and no lyrics. Fields: title, artist, source (https URL to the chord source), key, tempo (number, estimate if unknown), beats (3 or 4), optional strum, sections (array of {name, chords:["C","G","Am","F"]} in song order). The chords must be transposed, if needed, to these ukulele shapes only: ${Object.keys(CHORDS).filter((c) => c !== 'Chi').join(', ')}. Do not invent a song arrangement. If no reliable chord source is found, say so instead of JSON. Keep sections short but preserve verse/chorus differences.`;
 
     function setup() {
@@ -90,12 +99,30 @@
     }
 
     function pendingSong(g) {
+      if (onlineLookup && !lookupStarted) { lookupStarted = true; queueMicrotask(() => lookup(g)); }
       return `<article class="card"><h3>${T('Song analysis needed', 'Falta analisar a música')}</h3>
         <p>${T('Your goal and date are saved. This song is outside the verified starter catalog, so there is no honest song-specific plan yet.', 'Sua meta e data estão salvas. A música não está no catálogo inicial verificado, então ainda não há um plano específico confiável.')}</p>
-        <p>${T('Ask ChatGPT to find a chord source and return a short chord-only analysis. You do not need to find or paste a chord sheet.', 'Peça ao ChatGPT para encontrar uma fonte de acordes e devolver uma análise curta, só com acordes. Você não precisa procurar nem colar uma cifra.')}</p>
+        ${onlineLookup ? `<p id="goal-lookup-msg" role="status">${lookupBusy || !lookupStarted ? T('Finding a chord source and building your plan…', 'Buscando uma fonte de acordes e montando seu plano…') : esc(lookupError)}</p><button class="btn sm" data-goal-act="lookup" ${lookupBusy ? 'disabled' : ''}>${T('Find song in the app', 'Buscar música no app')}</button><details><summary>${T('Have a chord analysis already?', 'Já tem uma análise de acordes?')}</summary>` : `<p>${T('Ask ChatGPT to find a chord source and return a short chord-only analysis.', 'Peça ao ChatGPT para encontrar uma fonte de acordes e devolver uma análise curta, só com acordes.')}</p>`}
         <div class="row wrap"><button class="btn sm" data-goal-act="copy-prompt">${T('Copy AI request', 'Copiar pedido para IA')}</button><a class="btn sm ghost" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${T('Open ChatGPT', 'Abrir ChatGPT')}</a></div>
         <label>${T('Paste the AI JSON response here', 'Cole a resposta JSON da IA aqui')}<textarea id="goal-json" rows="7" placeholder='{"title":"...","source":"https://...","sections":[{"name":"Verse","chords":["C","G","Am","F"]}]}'></textarea></label>
-        <button class="btn" data-goal-act="import">${T('Analyze and build plan', 'Analisar e montar plano')}</button><p id="goal-msg" class="hint" role="status"></p></article>`;
+        <button class="btn" data-goal-act="import">${T('Analyze and build plan', 'Analisar e montar plano')}</button><p id="goal-msg" class="hint" role="status"></p>${onlineLookup ? '</details>' : ''}</article>`;
+    }
+
+    async function lookup(g) {
+      if (!onlineLookup || lookupBusy || g !== goal()) return;
+      lookupBusy = true; lookupError = ''; render();
+      try {
+        const response = await fetch('/api/song', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: g.title, artist: g.artist }) });
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || 'lookup');
+        const song = parseSong(data.song);
+        if (!sameTitle(song.title, g.title) && !confirm(T(`Found “${song.title}” by ${song.artist}. Use this song?`, `Encontrei “${song.title}” de ${song.artist}. Usar esta música?`))) throw Error('different title');
+        if (!song.source) throw Error('source');
+        if (g !== goal()) return;
+        g.title = song.title; g.artist = song.artist; g.song = song; g.mastery = {}; g.history = []; save();
+      } catch (error) {
+        lookupError = error.message === 'different title' ? T('Song was not changed. Check the title and try again.', 'A música não foi alterada. Confira o título e tente novamente.') : T('Could not verify this song right now. Try again or paste an analysis below.', 'Não consegui verificar esta música agora. Tente de novo ou cole uma análise abaixo.');
+      } finally { lookupBusy = false; render(); }
     }
 
     function lesson(g, p) {
@@ -151,6 +178,7 @@
       const fd = new FormData(form), title = String(fd.get('title') || '').trim(), date = String(fd.get('date') || '');
       if (!title || daysBetween(today(), date) < 0) return;
       const found = catalog.find((s) => norm(s.title) === norm(title));
+      lookupStarted = false; lookupError = '';
       state().goal = { title, artist: String(fd.get('artist') || '').trim(), date, minutes: Math.max(5, Math.min(20, Number(fd.get('minutes')) || 5)), skill: { tune: fd.has('tune'), strum: fd.has('strum'), chords: fd.getAll('chord') }, song: found ? parseSong(found) : null, mastery: {}, history: [] };
       save(); render();
     }
@@ -199,9 +227,10 @@
         try { await navigator.clipboard.writeText(prompt(g)); msg.textContent = T('Copied. Paste into ChatGPT, then paste its JSON response below.', 'Copiado. Cole no ChatGPT e depois cole a resposta JSON abaixo.'); }
         catch { msg.textContent = prompt(g); }
       }
+      if (b.dataset.goalAct === 'lookup') await lookup(g);
       if (b.dataset.goalAct === 'import') {
-        try { const song = parseSong(JSON.parse(document.querySelector('#goal-json').value)); if (norm(song.title) !== norm(g.title)) throw Error('title mismatch'); g.song = song; g.mastery = {}; g.history = []; save(); render(); }
-        catch { document.querySelector('#goal-msg').textContent = T('Could not read this analysis. Check the song title, JSON format, and supported chords.', 'Não consegui ler a análise. Confira o título, o JSON e os acordes aceitos.'); }
+        try { const song = parseSong(readJson(document.querySelector('#goal-json').value)); if (!sameTitle(song.title, g.title)) throw Error('title mismatch'); g.title = song.title; g.artist = song.artist || g.artist; g.song = song; g.mastery = {}; g.history = []; save(); render(); }
+        catch (error) { document.querySelector('#goal-msg').textContent = error.message === 'title mismatch' ? T('This analysis names a different song. Check the title.', 'A análise indica outra música. Confira o título.') : T('Could not read this analysis. Check the JSON and supported chords.', 'Não consegui ler a análise. Confira o JSON e os acordes aceitos.'); }
       }
       if (b.dataset.goalAct === 'check') {
         if (listening) { listening = false; await Mic.stop(); }
@@ -212,7 +241,7 @@
         g.history.push({ date: today(), id: s.id, title: s.en, result, evidence: 'self' });
         save(); render();
       }
-      if (b.dataset.goalAct === 'remove' && confirm(T('Replace this song goal? Its check-in history will be removed from this device.', 'Trocar esta meta? O histórico de retornos desta música será apagado deste aparelho.'))) { Player.stop(); if (listening) { listening = false; await Mic.stop(); } state().goal = null; save(); render(); }
+      if (b.dataset.goalAct === 'remove' && confirm(T('Replace this song goal? Its check-in history will be removed from this device.', 'Trocar esta meta? O histórico de retornos desta música será apagado deste aparelho.'))) { Player.stop(); if (listening) { listening = false; await Mic.stop(); } lookupStarted = false; lookupError = ''; state().goal = null; save(); render(); }
     }
     function report() {
       const g = goal(); if (!g) return '';

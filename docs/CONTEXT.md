@@ -16,12 +16,13 @@ The lessons themselves are planned and logged in Notion, on the page *Ukulele â€
 
 ## Architecture
 
-Plain HTML, CSS and JavaScript served as static files from GitHub Pages. No build step, no framework, no server, no accounts, no analytics.
+Plain HTML, CSS and JavaScript served as static files from Vercel, with one Vercel Function for song search. No build step, framework or analytics. Vercel deployment protection restricts access to invited team members. The former GitHub Pages URL redirects to Vercel and carries saved local progress in a URL fragment.
 
 - Scripts are classic `<script>` tags that attach to `window` (`UKE`, `DG`, `DSP`, `Snd`, `Player`, `Mic`, `RecStore`, `UI`, `PWA`, `SongGoal`). Load order in `index.html` matters.
 - Views are functions in `js/app.js` that return HTML strings; one delegated click handler dispatches `data-act` attributes to the `A` action table. Song Goal uses `data-goal-act`.
 - Sound is synthesised with the Web Audio API. Microphone checks use pitch detection, onset detection and chroma matching from `js/dsp.js`.
 - A service worker (`sw.js`) precaches every file and serves network-first, so the app works offline and still picks up deploys.
+- `api/song.js` sends the user's song title and artist to Vercel AI Gateway with web search. The gateway key is a Vercel production secret; the response contains short chord sections and a source URL, never lyrics. The daily $2 gateway key and project budgets constrain spending.
 
 ## Data (all on the device)
 
@@ -37,4 +38,4 @@ Evidence levels: `mic` (verified by the microphone), `self` (self-reported), `pl
 
 - Microphone thresholds are untested on a real ukulele and phone.
 - No sync between devices or back to Notion (manual report / backup only).
-- Songs outside the four starter songs need a manual AI-assisted chord import.
+- Automatic song search needs a network connection and a reliable source; manual chord-only import remains available if it cannot find one.
