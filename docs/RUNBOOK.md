@@ -4,23 +4,25 @@
 
 | Thing | Location |
 | --- | --- |
-| Live app (the one to use and install) | https://educrvz.github.io/ukulele-master/ |
+| Live app (the one to use and install) | https://ukulele-master-two.vercel.app/ (Vercel sign-in required) |
 | Code | https://github.com/educrvz/ukulele-master (public, branch `main`) |
-| Main hosting | GitHub Pages, "deploy from branch": `main`, folder `/` |
-| Second host + branch previews | Vercel project `ukulele-master` in team `educrvzs-projects`, connected to the GitHub repo: https://ukulele-master-two.vercel.app/ (Vercel added "-two" because `ukulele-master.vercel.app` belongs to someone else) |
+| Main hosting + branch previews | Vercel project `ukulele-master` in team `educrvzs-projects`, connected to the GitHub repo; deployment protection enabled |
+| Old public address | https://educrvz.github.io/ukulele-master/ redirects to the private app, transferring local progress in a URL fragment |
 | Local folder | `~/Documents/03 Software & AI/Claude/Code/ukulele-master` |
 | Learner's record | Notion: [Ukulele — lessons, visuals & progress](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a) |
 | App guide in Notion | [Ukulele Master app — guide & documentation](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94) |
 
-### Two addresses, two separate sets of progress
+### Progress when moving addresses
 
-Saved progress belongs to the web address it was made on. Progress on `educrvz.github.io` does not appear on `ukulele-master-two.vercel.app`, and the reverse. Use the GitHub Pages address for real practice. Use Vercel to look at a branch before merging: every pushed branch and pull request gets its own preview link, posted on the pull request.
+Saved progress belongs to the web address it was made on. Opening the old GitHub Pages address online redirects to Vercel with the saved `uke-master-v1` state in the URL fragment. Vercel imports it if no state exists there; if there is already state, it asks before replacing it. The source copy remains on the old address. IndexedDB microphone recordings do not transfer. Preview deployments have their own origin and local progress.
 
 ### Vercel settings
 
-- Framework: none (static files, no build command, output is the repository root).
+- Framework: none (static files plus `api/song.js`; no build command, output is the repository root).
 - Production branch: `main`. Every push to `main` deploys to production; other branches get preview deployments.
-- Plan: Hobby (free). No paid add-ons, no spend limit needed because nothing here can bill. Do not enable paid features without asking Edu.
+- Plan: Hobby. AI Gateway key and project budgets are each $2/day, with 50/75/100% key alerts. These are soft caps; a crossing request may finish. Do not enable automatic top-ups or overage.
+- Song lookup: `lib/chord-source.js` searches a public chord chart and keeps only short chord sequences and the source URL. `api/song.js` tries the model only if that source path fails. The selected paid model returned 403 on the current free AI Gateway tier; do not buy credits without Edu's approval. Direct source lookup has no model charge.
+- Access: Vercel deployment protection with SSO. Add only Edu's named family members to the project/team after he supplies their accounts. The GitHub Pages address is a public redirect only.
 - `.vercel/` (local link file) is git-ignored. Re-link a fresh clone with `vercel link --yes --project ukulele-master --scope educrvzs-projects`.
 
 ## Run locally
@@ -42,8 +44,8 @@ Must end with "All checks passed." It needs the local server above and Python Pl
 ## Deploy
 
 1. Work on a branch, run the smoke test, open a pull request.
-2. Merge into `main`. GitHub Pages rebuilds automatically (about one minute).
-3. Open the live URL and reload once. Installed copies update themselves the next time they are opened online; a "New version ready" notice offers a reload.
+2. Merge into `main`. Vercel deploys the static files and the function; GitHub Pages updates its redirect.
+3. Open the protected live URL and test a song lookup. Installed copies update themselves the next time they are opened online; a "New version ready" notice offers a reload.
 
 ## Roll back
 
@@ -57,7 +59,7 @@ git revert <commit>
 git push origin main
 ```
 
-Pages redeploys the previous state. Saved progress is not touched by a rollback, because it lives in each browser.
+Vercel and Pages redeploy the previous state. Saved progress is not touched by a rollback, because it lives in each browser.
 
 ## Force every device to drop its cached files
 
@@ -75,6 +77,6 @@ python3 tools/make-icons.py
 
 | Credential | Scope | Expiry | Notes |
 | --- | --- | --- | --- |
-| None | — | — | The app has no backend, API keys or tokens. Deploying uses Edu's normal GitHub login (`gh`); Vercel deploys through its GitHub connection, and the `vercel` CLI uses Edu's own login. No tokens were created. |
+| `AI_GATEWAY_API_KEY` (key ID `uOZwbMCBrfoey3IkBJmp9q0TvytDWZLLrPYPc23MymX45t8D`) | Vercel AI Gateway, team `educrvzs-projects`, production secret in project `ukulele-master`; no browser access | 2027-02-22 (90 days from creation) | $2/day key budget, 50/75/100% alerts; $2/day project budget. Renew with a new 90-day key, replace the production secret, deploy, then revoke the old key. Never commit the value. |
 
-If a paid service is ever added (for example automatic song lookup), follow Edu's limits: an expiry, least scope, and a hard cap of about US$ 2 per day, recorded in this table.
+The key cannot be scoped to a single project by Vercel; the production secret and the additional project budget constrain this app. Check budgets with `vercel --scope educrvzs-projects ai-gateway budgets list --json`. To revoke the key: `vercel --scope educrvzs-projects ai-gateway api-keys revoke uOZwbMCBrfoey3IkBJmp9q0TvytDWZLLrPYPc23MymX45t8D --yes`.

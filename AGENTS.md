@@ -1,18 +1,18 @@
 # Ukulele Master
 
-A static, bilingual (English / Brazilian Portuguese) daily-dose ukulele game. Installable PWA (Progressive Web App), hosted on GitHub Pages. No build step, no backend, no dependencies.
+A bilingual (English / Brazilian Portuguese) daily-dose ukulele game. Installable PWA (Progressive Web App), hosted privately on Vercel with one server-side song lookup route. The browser files remain plain HTML, CSS and JavaScript with no build step or dependencies.
 
-Live: https://educrvz.github.io/ukulele-master/ · Repo: https://github.com/educrvz/ukulele-master
+Live: https://ukulele-master-two.vercel.app/ · Repo: https://github.com/educrvz/ukulele-master
 
 Read first: the newest entries in `PROGRESS.md`, then `docs/CONTEXT.md` and `docs/RUNBOOK.md`.
 
 ## Run and test
 - Serve: `python3 -m http.server 8765 --bind 127.0.0.1` in the repo root, then open `http://127.0.0.1:8765/`.
 - `?date=YYYY-MM-DD` overrides "today" (tests the one-dose-per-day gate). `?view=practice|goal|diary` opens a tab directly.
-- Test before every push: `python3 tests/smoke.py` (headless Playwright; must print "All checks passed.").
+- Test before every push: `python3 tests/smoke.py` (headless Playwright; must print "All checks passed."). Also run `node tests/song-api.test.js` when changing the lookup route.
 - Touching `js/dsp.js` or `js/mic.js`? Also run `node tests/listening.test.js` (no browser needed; must print "All listening checks passed."). To hear what the checks make of a real recording: `python3 tests/fake-mic.py recording.wav` (replays it as the microphone) or `node tests/lib/trace.js recording.wav` (per-sound scores). Do not commit personal voice recordings: the repo is public.
 - Visual check: `python3 tests/shots.py <folder>` writes phone, desktop and dark-mode screenshots. Look at them.
-- Deploy: merge to `main`; GitHub Pages serves the repository root within a minute or two. Vercel (project `ukulele-master`) mirrors `main` and posts a preview link on every pull request; check the preview before merging.
+- Deploy: merge to `main`; Vercel (project `ukulele-master`) serves the private app and posts a preview link on every pull request; check the preview before merging. GitHub Pages redirects to the private address and transfers local progress in the URL fragment.
 - Learner's record and app guide live in Notion; links are in `docs/RUNBOOK.md`. Update the Notion app guide's change history when shipping something the learner will notice.
 
 ## Layout
@@ -23,6 +23,7 @@ Read first: the newest entries in `PROGRESS.md`, then `docs/CONTEXT.md` and `doc
 - `js/dsp.js`: pure pitch / chroma / onset functions. `js/mic.js`: microphone checks and recordings (IndexedDB).
 - `js/audio.js`: synthesised demo sound and play-along. `js/ui.js`: icons, toast, confetti, wake lock, theme.
 - `js/song-goal.js` + `js/song-catalog.js`: Song Goal Mode. `js/app.js`: views, navigation, progress.
+- `api/song.js`: server-only chord source search through Vercel AI Gateway. Never expose the key in browser code or Git.
 - `sw.js` + `js/pwa.js` + `manifest.webmanifest` + `icons/`: install and offline support.
 - `tools/make-icons.py`: regenerate PNG icons after editing `icons/icon.svg`.
 

@@ -5,7 +5,7 @@
 const CACHE = 'uke-master-shell-v2';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/dsp.js', 'js/data.js', 'js/diagrams.js', 'js/audio.js', 'js/mic.js', 'js/ui.js', 'js/pwa.js',
+  'js/migrate.js', 'js/dsp.js', 'js/data.js', 'js/diagrams.js', 'js/audio.js', 'js/mic.js', 'js/ui.js', 'js/pwa.js',
   'js/song-catalog.js', 'js/song-goal.js', 'js/app.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
 ];
