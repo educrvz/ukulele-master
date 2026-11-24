@@ -540,6 +540,7 @@
     const b = e.target.closest('[data-act]');
     if (b && A[b.dataset.act]) A[b.dataset.act](b);
   });
+  document.addEventListener('input', (e) => { if (e.target.id === 'song-search') goalAPI.searchInput(e.target); });
   document.addEventListener('change', (e) => {
     if (e.target.id === 'cgA' || e.target.id === 'cgB') {
       V.cgA = $('#cgA').value; V.cgB = $('#cgB').value;

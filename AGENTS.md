@@ -1,6 +1,6 @@
 # Ukulele Master
 
-A bilingual (English / Brazilian Portuguese) daily-dose ukulele game. Installable PWA (Progressive Web App), hosted privately on Vercel with one server-side song lookup route. The browser files remain plain HTML, CSS and JavaScript with no build step or dependencies.
+A bilingual (English / Brazilian Portuguese) daily-dose ukulele game. Installable PWA (Progressive Web App), hosted privately on Vercel with server-side song suggestions and chord lookup. The browser files remain plain HTML, CSS and JavaScript with no build step or dependencies.
 
 Live: https://ukulele-master-two.vercel.app/ · Repo: https://github.com/educrvz/ukulele-master
 
@@ -23,7 +23,7 @@ Read first: the newest entries in `PROGRESS.md`, then `docs/CONTEXT.md` and `doc
 - `js/dsp.js`: pure pitch / chroma / onset functions. `js/mic.js`: microphone checks and recordings (IndexedDB).
 - `js/audio.js`: synthesised demo sound and play-along. `js/ui.js`: icons, toast, confetti, wake lock, theme.
 - `js/song-goal.js` + `js/song-catalog.js`: Song Goal Mode. `js/app.js`: views, navigation, progress.
-- `api/song.js`: server-only chord source search through Vercel AI Gateway. Never expose the key in browser code or Git.
+- `api/search.js`: song and artist suggestions from the chord index. `api/song.js`: server-only chord lookup and AI Gateway fallback. Never expose the key in browser code or Git.
 - `sw.js` + `js/pwa.js` + `manifest.webmanifest` + `icons/`: install and offline support.
 - `tools/make-icons.py`: regenerate PNG icons after editing `icons/icon.svg`.
 
