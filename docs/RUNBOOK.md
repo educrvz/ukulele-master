@@ -22,7 +22,7 @@ Saved progress belongs to the web address it was made on. Opening the old GitHub
 - Production branch: `main`. Every push to `main` deploys to production; other branches get preview deployments.
 - Plan: Hobby. AI Gateway key and project budgets are each $2/day, with 50/75/100% key alerts. These are soft caps; a crossing request may finish. Do not enable automatic top-ups or overage.
 - Song lookup: `lib/chord-source.js` searches a public chord chart and keeps only short chord sequences and the source URL. `api/song.js` tries the model only if that source path fails. The selected paid model returned 403 on the current free AI Gateway tier; do not buy credits without Edu's approval. Direct source lookup has no model charge.
-- Access: Vercel deployment protection with SSO. Add only Edu's named family members to the project/team after he supplies their accounts. The GitHub Pages address is a public redirect only.
+- Access: Vercel deployment protection with SSO `deploymentType: all`, covering production and previews. An unauthenticated production request must return a sign-in redirect (HTTP 302), never the app HTML. Only Edu is currently a team member. Add only his named family members after he supplies their accounts. The GitHub Pages address is a public redirect only.
 - `.vercel/` (local link file) is git-ignored. Re-link a fresh clone with `vercel link --yes --project ukulele-master --scope educrvzs-projects`.
 
 ## Run locally
