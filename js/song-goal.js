@@ -11,7 +11,6 @@
     const candidate = String(s || '').replace(/\\([:()])/g, '$1').match(/https:\/\/[^\s\])]+/i)?.[0];
     try { const u = new URL(candidate); return u.protocol === 'https:' ? u.href : ''; } catch { return ''; }
   };
-  const readJson = (value) => JSON.parse(String(value).trim().replace(/\\([:()])/g, '$1').replace(/^```(?:json)?\s*|\s*```$/gi, ''));
   const sameTitle = (a, b) => norm(a).replace(/ /g, '') === norm(b).replace(/ /g, '');
 
   function parseSong(raw) {
@@ -76,36 +75,75 @@
     let lookupStarted = false;
     let lookupBusy = false;
     let lookupError = '';
+    let searchTimer = null;
+    let searchController = null;
     const onlineLookup = location.protocol === 'https:' && location.hostname !== 'educrvz.github.io' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const prompt = (g) => `Find a trustworthy chord source for "${g.title}"${g.artist ? ` by ${g.artist}` : ''}. Return ONLY a JSON object, no markdown and no lyrics. Fields: title, artist, source (https URL to the chord source), key, tempo (number, estimate if unknown), beats (3 or 4), optional strum, sections (array of {name, chords:["C","G","Am","F"]} in song order). The chords must be transposed, if needed, to these ukulele shapes only: ${Object.keys(CHORDS).filter((c) => c !== 'Chi').join(', ')}. Do not invent a song arrangement. If no reliable chord source is found, say so instead of JSON. Keep sections short but preserve verse/chorus differences.`;
+
+    function selectSong(title, artist, button) {
+      const form = document.querySelector('#goal-setup');
+      if (!form) return;
+      form.elements.title.value = title;
+      form.elements.artist.value = artist;
+      form.elements.query.value = `${title} — ${artist}`;
+      form.querySelector('#song-selected').textContent = T(`Selected: ${title} — ${artist}`, `Selecionada: ${title} — ${artist}`);
+      form.querySelector('#song-results').replaceChildren();
+      form.querySelector('button[type="submit"]').disabled = false;
+      form.querySelectorAll('[data-goal-act="pick-song"]').forEach((x) => x.classList.toggle('on', x === button));
+      clearTimeout(searchTimer); searchController?.abort();
+    }
+
+    function searchInput(input) {
+      const form = input.closest('#goal-setup');
+      if (!form) return;
+      clearTimeout(searchTimer); searchController?.abort();
+      form.elements.title.value = ''; form.elements.artist.value = '';
+      form.querySelector('button[type="submit"]').disabled = true;
+      form.querySelector('#song-selected').textContent = '';
+      form.querySelectorAll('[data-goal-act="pick-song"]').forEach((x) => x.classList.remove('on'));
+      const results = form.querySelector('#song-results');
+      const query = input.value.trim();
+      if (query.length < 2) { results.textContent = T('Type at least two letters to search.', 'Digite pelo menos duas letras para buscar.'); return; }
+      results.textContent = T('Searching songs…', 'Buscando músicas…');
+      searchTimer = setTimeout(async () => {
+        const controller = new AbortController(); searchController = controller;
+        try {
+          const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+          if (!response.ok) throw Error('search');
+          const data = await response.json();
+          if (controller.signal.aborted || !form.isConnected || input.value.trim() !== query) return;
+          const songs = Array.isArray(data.songs) ? data.songs : [];
+          results.innerHTML = songs.length ? songs.slice(0, 6).map((song) => `<button type="button" class="song-result" data-goal-act="pick-song" data-title="${esc(song.title)}" data-artist="${esc(song.artist)}"><b>${esc(song.title)}</b><small>${esc(song.artist)}</small></button>`).join('') : T('No matching chord songs found. Try another spelling or artist.', 'Nenhuma música com acordes encontrada. Tente outra grafia ou artista.');
+        } catch (error) {
+          if (!controller.signal.aborted && form.isConnected) results.textContent = T('Song search is unavailable right now. Try again shortly.', 'A busca de músicas está indisponível agora. Tente novamente em breve.');
+        }
+      }, 350);
+    }
 
     function setup() {
       const tomorrow = addDays(today(), 1);
       return `<h1 class="page">${T('Play a song by a date', 'Toque uma música até uma data')}</h1>
         <p class="page-sub">${T('Choose a song. We turn it into tiny lessons and revise the plan after every check-in.', 'Escolha uma música. Ela vira pequenas aulas, e o plano é revisto a cada retorno.')}</p>
         <form id="goal-setup" class="card goal-form">
-          <label>${T('Song', 'Música')}<input name="title" required maxlength="120" placeholder="${T('Song title', 'Nome da música')}" list="song-suggestions" autocomplete="off"></label>
-          <datalist id="song-suggestions">${catalog.map((s) => `<option value="${esc(s.title)}">`).join('')}</datalist>
+          <label>${T('Song or artist', 'Música ou artista')}<input name="query" id="song-search" maxlength="120" placeholder="${T('Type a song or artist', 'Digite uma música ou artista')}" autocomplete="off"></label>
+          <div id="song-results" class="song-results" role="status">${T('Type at least two letters to search.', 'Digite pelo menos duas letras para buscar.')}</div>
+          <p id="song-selected" class="hint" role="status"></p><input name="title" type="hidden"><input name="artist" type="hidden">
           <div><p class="hint">${T('Ready-to-play starter songs', 'Músicas iniciais prontas para tocar')}</p><div class="chips">${catalog.map((s) => `<button type="button" class="chip" data-goal-act="pick-song" data-title="${esc(s.title)}" data-artist="${esc(s.artist || '')}">${esc(s.title)}</button>`).join('')}</div></div>
-          <label>${T('Artist, if known', 'Artista, se souber')}<input name="artist" maxlength="100" autocomplete="off"></label>
           <div class="goal-fields"><label>${T('I want to play it by', 'Quero tocar até')}<input name="date" type="date" min="${today()}" value="${addDays(today(), 21)}" required></label>
           <label>${T('Minutes per day', 'Minutos por dia')}<select name="minutes"><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20">20</option></select></label></div>
           <fieldset><legend>${T('Quick skill check', 'Checagem rápida')}</legend>
             <div class="ticks"><label class="tick"><input type="checkbox" name="tune"> ${T('I can tune my ukulele', 'Sei afinar o ukulele')}</label>
             <label class="tick"><input type="checkbox" name="strum"> ${T('I can keep an even downstrum', 'Consigo manter batidas para baixo regulares')}</label></div>
             <p class="hint" style="margin:0">${T('Chords I can play clearly', 'Acordes que consigo tocar com som limpo')}</p><div class="ticks">${['C', 'G', 'Am', 'F', 'D', 'Em', 'Dm', 'A'].map((c) => `<label class="tick"><input type="checkbox" name="chord" value="${c}"> ${esc(name(c))}</label>`).join('')}</div>
-          </fieldset><button class="btn big" type="submit">${T('Build my plan', 'Montar meu plano')}</button></form>
-        <p class="hint">${T('Progress stays on this device. A source is needed before we can make song-specific lessons.', 'O progresso fica neste aparelho. Precisamos de uma fonte antes de criar aulas específicas da música.')}</p>`;
+          </fieldset><button class="btn big" type="submit" disabled>${T('Build my plan', 'Montar meu plano')}</button></form>
+        <p class="hint">${T('Select a suggested song first. Progress stays on this device.', 'Selecione uma música sugerida. O progresso fica neste aparelho.')}</p>`;
     }
 
     function pendingSong(g) {
       if (onlineLookup && !lookupStarted) { lookupStarted = true; queueMicrotask(() => lookup(g)); }
-      return `<article class="card"><h3>${T('Song analysis needed', 'Falta analisar a música')}</h3>
-        <p>${T('Your goal and date are saved. This song is outside the verified starter catalog, so there is no honest song-specific plan yet.', 'Sua meta e data estão salvas. A música não está no catálogo inicial verificado, então ainda não há um plano específico confiável.')}</p>
-        ${onlineLookup ? `<p id="goal-lookup-msg" role="status">${lookupBusy || !lookupStarted ? T('Finding a chord source and building your plan…', 'Buscando uma fonte de acordes e montando seu plano…') : esc(lookupError)}</p><button class="btn sm" data-goal-act="lookup" ${lookupBusy ? 'disabled' : ''}>${T('Find song in the app', 'Buscar música no app')}</button><details><summary>${T('Have a chord analysis already?', 'Já tem uma análise de acordes?')}</summary>` : `<p>${T('Ask ChatGPT to find a chord source and return a short chord-only analysis.', 'Peça ao ChatGPT para encontrar uma fonte de acordes e devolver uma análise curta, só com acordes.')}</p>`}
-        <div class="row wrap"><button class="btn sm" data-goal-act="copy-prompt">${T('Copy AI request', 'Copiar pedido para IA')}</button><a class="btn sm ghost" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">${T('Open ChatGPT', 'Abrir ChatGPT')}</a></div>
-        <label>${T('Paste the AI JSON response here', 'Cole a resposta JSON da IA aqui')}<textarea id="goal-json" rows="7" placeholder='{"title":"...","source":"https://...","sections":[{"name":"Verse","chords":["C","G","Am","F"]}]}'></textarea></label>
-        <button class="btn" data-goal-act="import">${T('Analyze and build plan', 'Analisar e montar plano')}</button><p id="goal-msg" class="hint" role="status"></p>${onlineLookup ? '</details>' : ''}</article>`;
+      return `<article class="card"><h3>${T('Finding your song', 'Buscando sua música')}</h3>
+        <p>${T('Your song and date are saved. We are finding a chord source and preparing your lessons.', 'Sua música e data estão salvas. Estamos buscando uma fonte de acordes e preparando suas aulas.')}</p>
+        <p id="goal-lookup-msg" role="status">${lookupBusy || !lookupStarted ? T('Finding a chord source and building your plan…', 'Buscando uma fonte de acordes e montando seu plano…') : esc(lookupError)}</p>
+        ${onlineLookup ? `<button class="btn sm" data-goal-act="lookup" ${lookupBusy ? 'disabled' : ''}>${T('Try again', 'Tentar de novo')}</button>` : ''}</article>`;
     }
 
     async function lookup(g) {
@@ -116,12 +154,12 @@
         const data = await response.json();
         if (!response.ok) throw Error(data.error || 'lookup');
         const song = parseSong(data.song);
-        if (!sameTitle(song.title, g.title) && !confirm(T(`Found “${song.title}” by ${song.artist}. Use this song?`, `Encontrei “${song.title}” de ${song.artist}. Usar esta música?`))) throw Error('different title');
+        if (!sameTitle(song.title, g.title)) throw Error('different title');
         if (!song.source) throw Error('source');
         if (g !== goal()) return;
         g.title = song.title; g.artist = song.artist; g.song = song; g.mastery = {}; g.history = []; save();
       } catch (error) {
-        lookupError = error.message === 'different title' ? T('Song was not changed. Check the title and try again.', 'A música não foi alterada. Confira o título e tente novamente.') : T('Could not verify this song right now. Try again or paste an analysis below.', 'Não consegui verificar esta música agora. Tente de novo ou cole uma análise abaixo.');
+        lookupError = error.message === 'different title' ? T('The chord source named a different song. Choose another result.', 'A fonte de acordes indicou outra música. Escolha outro resultado.') : T('Could not verify this song right now. Try again.', 'Não consegui verificar esta música agora. Tente de novo.');
       } finally { lookupBusy = false; render(); }
     }
 
@@ -183,11 +221,7 @@
       save(); render();
     }
     async function action(b) {
-      if (b.dataset.goalAct === 'pick-song') {
-        const f = document.querySelector('#goal-setup');
-        if (f) { f.elements.title.value = b.dataset.title; f.elements.artist.value = b.dataset.artist || ''; f.querySelectorAll('[data-goal-act="pick-song"]').forEach((x) => x.classList.toggle('on', x === b)); }
-        return;
-      }
+      if (b.dataset.goalAct === 'pick-song') { selectSong(b.dataset.title, b.dataset.artist || '', b); return; }
       const g = goal(); if (!g) return;
       if (b.dataset.goalAct === 'play') {
         const p = plan(g, today()), s = p.next;
@@ -222,16 +256,7 @@
           }, true);
         } catch { listening = false; msg.textContent = T('Microphone unavailable. Use a self-reported check-in below.', 'Microfone indisponível. Use um retorno autodeclarado abaixo.'); b.textContent = '🎤 ' + T('Microphone check', 'Checagem com microfone'); }
       } else if (b.dataset.goalAct === 'verify' && listening) { listening = false; await Mic.stop(); b.textContent = '🎤 ' + T('Microphone check', 'Checagem com microfone'); }
-      if (b.dataset.goalAct === 'copy-prompt') {
-        const msg = document.querySelector('#goal-msg');
-        try { await navigator.clipboard.writeText(prompt(g)); msg.textContent = T('Copied. Paste into ChatGPT, then paste its JSON response below.', 'Copiado. Cole no ChatGPT e depois cole a resposta JSON abaixo.'); }
-        catch { msg.textContent = prompt(g); }
-      }
       if (b.dataset.goalAct === 'lookup') await lookup(g);
-      if (b.dataset.goalAct === 'import') {
-        try { const song = parseSong(readJson(document.querySelector('#goal-json').value)); if (!sameTitle(song.title, g.title)) throw Error('title mismatch'); g.title = song.title; g.artist = song.artist || g.artist; g.song = song; g.mastery = {}; g.history = []; save(); render(); }
-        catch (error) { document.querySelector('#goal-msg').textContent = error.message === 'title mismatch' ? T('This analysis names a different song. Check the title.', 'A análise indica outra música. Confira o título.') : T('Could not read this analysis. Check the JSON and supported chords.', 'Não consegui ler a análise. Confira o JSON e os acordes aceitos.'); }
-      }
       if (b.dataset.goalAct === 'check') {
         if (listening) { listening = false; await Mic.stop(); }
         Player.stop();
@@ -248,7 +273,7 @@
       const p = plan(g, today());
       return [`Song goal: ${g.title}${g.artist ? ` — ${g.artist}` : ''}`, `Deadline: ${g.date}; ${g.minutes} min/day`, `Arrangement: ${g.song ? g.song.source || 'no source' : 'pending'}`, `Remaining focused practice: ${p.remaining} min`, ...g.history.slice(-10).map((h) => `${h.date}: ${h.title} — ${h.result} (${h.evidence || 'self'})`) ].join('\n');
     }
-    return { view, submit, edit, action, report, stop: () => { listening = false; }, plan: () => goal() ? plan(goal(), today()) : null };
+    return { view, submit, edit, action, searchInput, report, stop: () => { listening = false; }, plan: () => goal() ? plan(goal(), today()) : null };
   }
   window.SongGoal = { init, parseSong, songSteps, plan };
 })();

@@ -21,7 +21,7 @@ Saved progress belongs to the web address it was made on. Opening the old GitHub
 - Framework: none (static files plus `api/song.js`; no build command, output is the repository root).
 - Production branch: `main`. Every push to `main` deploys to production; other branches get preview deployments.
 - Plan: Hobby. AI Gateway key and project budgets are each $2/day, with 50/75/100% key alerts. These are soft caps; a crossing request may finish. Do not enable automatic top-ups or overage.
-- Song lookup: `lib/chord-source.js` searches a public chord chart and keeps only short chord sequences and the source URL. `api/song.js` tries `openai/gpt-5-mini` with web search only if that source path fails. That model answered on the current free AI Gateway tier; direct source lookup has no model charge. The model may decline when its search results lack reliable chord details. No credits were purchased.
+- Song search: `api/search.js` returns distinct songs from title and artist searches in a public chord index. The user selects one. `lib/chord-source.js` then keeps only short chord sequences and the source URL, transposing into supported ukulele shapes. `api/song.js` tries `openai/gpt-5-mini` with web search only if that source path fails. That model answered on the current free AI Gateway tier; direct source lookup has no model charge. The model may decline when its search results lack reliable chord details. No credits were purchased. No AI prompt or JSON importer is shown in the app.
 - Access: Vercel deployment protection with SSO `deploymentType: all`, covering production and previews. An unauthenticated production request must return a sign-in redirect (HTTP 302), never the app HTML. Only Edu is currently a team member. Add only his named family members after he supplies their accounts. The GitHub Pages address is a public redirect only.
 - `.vercel/` (local link file) is git-ignored. Re-link a fresh clone with `vercel link --yes --project ukulele-master --scope educrvzs-projects`.
 
@@ -39,7 +39,7 @@ Open http://127.0.0.1:8765/. The service worker also runs on localhost, so after
 python3 tests/smoke.py
 ```
 
-Must end with "All checks passed." It needs the local server above and Python Playwright with Chromium. It never opens a visible window.
+Must end with "All checks passed." It needs the local server above and Python Playwright with Chromium. It never opens a visible window. Run `node tests/song-api.test.js` after changes to either server route.
 
 ## Deploy
 

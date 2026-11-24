@@ -96,30 +96,26 @@ with sync_playwright() as p:
     pg.click('#goal-edit button[type="submit"]')
     check('goal edit saves minutes', pg.evaluate("__uke.S().goal.minutes") == 15)
 
-    # Gemini's actual response: corrected title, Markdown URL, and invalid backslash-colon escape.
+    # Song/artist search stays in-app; the learner selects a result before a plan is built.
     pg.on('dialog', lambda dialog: dialog.accept())
     pg.click('[data-goal-act="remove"]')
-    pg.fill('#goal-setup input[name="title"]', "Three little bird's")
-    pg.fill('#goal-setup input[name="artist"]', 'Bom markey')
-    pg.click('#goal-setup button[type="submit"]')
-    check('misspelled Three Little Birds finds starter arrangement', pg.evaluate("__uke.S().goal.song?.title") == 'Three Little Birds')
-    pg.evaluate("__uke.S().goal.song = null; __uke.go({name:'goal'})")
-    gemini = r'''{"title":"Three Little Birds","artist":"Bob Marley & The Wailers","source":"[https\://ukutabs.com/b/bob-marley/three-little-birds/]\(https\://ukutabs.com/b/bob-marley/three-little-birds/)","key":"C","tempo":76,"beats":4,"sections":[{"name":"Chorus","chords":["C","F","C"]},{"name":"Verse","chords":["C","G","F","C"]}]}'''
-    pg.locator('.goal-hero').wait_for()
-    pg.locator('details:has(#goal-json) summary').click()
-    pg.fill('#goal-json', gemini)
-    pg.click('[data-goal-act="import"]')
-    check('Gemini response imports with corrected title', pg.evaluate("__uke.S().goal.song?.title") == 'Three Little Birds')
-    check('Markdown source becomes a direct URL', pg.evaluate("__uke.S().goal.song?.source") == 'https://ukutabs.com/b/bob-marley/three-little-birds/')
-
-    # An unknown song is looked up in-app and its plan is built without pasting JSON.
-    pg.click('[data-goal-act="remove"]')
     pg.evaluate("""() => { const original = window.fetch; window.fetch = (url, options) =>
-      String(url).includes('/api/song') ? Promise.resolve(new Response(JSON.stringify({song:{title:'Stand By Me',artist:'Ben E. King',source:'https://example.org/stand-by-me',key:'C',tempo:72,beats:4,sections:[{name:'Chorus',chords:['C','Am','F','G']}]}}),{status:200,headers:{'Content-Type':'application/json'}})) : original(url, options); }""")
-    pg.fill('#goal-setup input[name="title"]', 'Stand by Me')
+      String(url).includes('/api/search') ? Promise.resolve(new Response(JSON.stringify({songs:[{title:'Three Little Birds',artist:'Bob Marley'},{title:'Redemption Song',artist:'Bob Marley'}]}),{status:200,headers:{'Content-Type':'application/json'}})) :
+      String(url).includes('/api/song') ? Promise.resolve(new Response(JSON.stringify({song:{title:'Redemption Song',artist:'Bob Marley',source:'https://example.org/redemption-song',key:'C',tempo:72,beats:4,sections:[{name:'Verse',chords:['C','Am','F','G']}]}}),{status:200,headers:{'Content-Type':'application/json'}})) : original(url, options); }""")
+    check('plan requires song selection', pg.locator('#goal-setup button[type="submit"]').is_disabled())
+    check('no paste or AI prompt controls', pg.locator('#goal-json, [data-goal-act="copy-prompt"], [data-goal-act="import"]').count() == 0)
+    pg.fill('#song-search', 'Bob Marley')
+    pg.locator('.song-result').first.wait_for()
+    check('artist search suggests multiple songs', pg.locator('.song-result').count() == 2)
+    pg.locator('.song-result').nth(1).click()
+    check('selected song enables plan', pg.locator('#goal-setup button[type="submit"]').is_enabled())
+    pg.fill('#song-search', 'Redemption')
+    check('editing search clears selection', pg.locator('#goal-setup button[type="submit"]').is_disabled())
+    pg.locator('.song-result').first.wait_for()
+    pg.locator('.song-result').nth(1).click()
     pg.click('#goal-setup button[type="submit"]')
-    pg.wait_for_function("__uke.S().goal?.song?.title === 'Stand By Me'")
-    check('automatic lookup builds song plan', pg.locator('.goal-lesson').count() == 1)
+    pg.wait_for_function("__uke.S().goal?.song?.title === 'Redemption Song'")
+    check('selected song builds plan in-app', pg.locator('.goal-lesson').count() == 1)
 
     # diary, theme, report
     pg.click('.tabs [data-view="diary"]')

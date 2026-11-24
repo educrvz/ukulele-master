@@ -303,7 +303,12 @@ dialog .card { margin-top: 0; }
 /* ───────── song goal */
 .goal-form { display: grid; gap: 16px; }
 .goal-form label, .goal-edit label { display: grid; gap: 6px; font-weight: 800; }
-.goal-form input:not([type="checkbox"]), .goal-form select, .goal-edit input, .goal-edit select, #goal-json { width: 100%; min-height: 48px; border: 1px solid var(--line-d); border-radius: 14px; background: var(--raised); color: var(--ink); padding: 9px 12px; font-weight: 600; }
+.goal-form input:not([type="checkbox"]):not([type="hidden"]), .goal-form select, .goal-edit input, .goal-edit select { width: 100%; min-height: 48px; border: 1px solid var(--line-d); border-radius: 14px; background: var(--raised); color: var(--ink); padding: 9px 12px; font-weight: 600; }
+.song-results { display: grid; gap: 6px; color: var(--muted); }
+.song-result { display: grid; gap: 2px; width: 100%; min-height: 50px; padding: 9px 12px; text-align: left; color: var(--ink); background: var(--raised); border: 1px solid var(--line-d); border-radius: 14px; cursor: pointer; }
+.song-result:hover, .song-result:focus-visible { border-color: var(--sea); outline-color: var(--sea); }
+.song-result small { color: var(--muted); }
+.goal-form button[type="submit"]:disabled { opacity: .5; cursor: not-allowed; }
 .goal-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .goal-form fieldset { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin: 0; display: grid; gap: 10px; }
 .goal-form legend { font-weight: 800; padding: 0 6px; }

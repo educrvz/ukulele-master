@@ -15,7 +15,7 @@ Learn ukulele in small daily doses, in English and Portuguese. One idea, one pic
 | --- | --- |
 | **Today** | Today's five-minute dose, this week's practice days, your song goal and level, and the journey: 48 doses on 8 islands, then a generated daily challenge. One new dose per day; replays are free. |
 | **Lesson** | Full-screen, three steps: **Look** (one idea with the chord diagram), **Play** (numbered steps, play-along sound, metronome, four-minute timer; the screen stays awake), **Prove** (microphone check, or an honest self-report). |
-| **Song** | Pick a song and a date. The app searches for a chord source, turns the song into tiny lessons, and replans after every check-in. Five starter songs work offline. |
+| **Song** | Type a song or artist, select a suggestion, and set a date. The app finds and adapts a chord source, turns the song into tiny lessons, and replans after every check-in. Five starter songs work offline. |
 | **Practice** | Tuner, metronome, the one-minute chord-change game, and the full chord library. |
 | **Diary** | Streak, calendar, recordings, practice log, progress report for Notion, backup export/import, light/dark appearance, install. |
 
@@ -61,7 +61,7 @@ node tests/listening.test.js
 
 They push synthetic room noise, hum, taps, a voice-like sound and plucked-string strums through the real listening code, and fail if noise or talking is counted as playing. `python3 tests/fake-mic.py recording.wav` replays any WAV as the microphone in a headless browser.
 
-`smoke.py` checks onboarding, all 48 doses in both languages, a full lesson, the chord-change game, both pasted and in-app song lookup, dark mode, and offline use. `shots.py` saves screenshots of every screen for phone, desktop and dark mode.
+`smoke.py` checks onboarding, all 48 doses in both languages, a full lesson, the chord-change game, in-app song suggestions and selection, dark mode, and offline use. `shots.py` saves screenshots of every screen for phone, desktop and dark mode.
 
 ## Folder layout
 
