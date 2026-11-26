@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const handler = require('../api/song');
 const search = require('../api/search');
+const { arrangement } = require('../lib/chord-source');
 
 function reply() {
   return { headers: {}, setHeader(key, value) { this.headers[key] = value; }, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
@@ -44,6 +45,11 @@ const html = (data) => `<div data-content="${JSON.stringify({ store: { page: { d
   assert.equal(res.body.song.source, source);
   assert.deepEqual(res.body.song.sections[0].chords, ['C', 'F', 'C']);
   assert.deepEqual(res.body.song.sections[1].chords, ['C', 'G', 'F', 'C']);
+  assert.equal(res.body.song.coverage, 'excerpt');
+  assert.equal(res.body.song.truncated, false);
+  const clipped = arrangement({ tab: { song_name: 'Long Song', artist_name: 'Example' }, tab_view: { wiki_tab: { content: Array.from({ length: 13 }, () => '[Verse]' + '[ch]C[/ch]'.repeat(21)).join('') } } }, source);
+  assert.equal(clipped.truncated, true);
+  assert.equal(clipped.sections.length, 12);
   assert.equal(res.headers['Cache-Control'], 'no-store');
   process.env.AI_GATEWAY_API_KEY = 'test-only';
   global.fetch = async (url, options) => {

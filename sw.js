@@ -2,11 +2,12 @@
    Strategy: network first for our own files (so a deploy shows up on the next online visit without any version bump),
    falling back to the cache when offline or slow. Fonts are cache first. Everything is precached on install,
    so the app works offline even if it was opened only once. */
-const CACHE = 'uke-master-shell-v2';
+const CACHE = 'uke-master-shell-v3';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/migrate.js', 'js/dsp.js', 'js/data.js', 'js/diagrams.js', 'js/audio.js', 'js/mic.js', 'js/ui.js', 'js/pwa.js',
   'js/song-catalog.js', 'js/song-goal.js', 'js/app.js',
+  ...['C4', 'D4', 'E4', 'F#4', 'G4', 'A4', 'B4', 'C#5', 'D#5', 'F5', 'G5', 'A5', 'C6', 'body-tap', 'chuck'].map((n) => `audio/ukulele/${encodeURIComponent(n)}.mp3`),
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
 ];
 
@@ -24,6 +25,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  if (url.origin === location.origin && url.pathname.startsWith('/api/')) return;
   const fonts = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (url.origin !== location.origin && !fonts) return;
 

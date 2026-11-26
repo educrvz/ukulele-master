@@ -318,6 +318,8 @@ dialog .card { margin-top: 0; }
 .tick:has(input:focus-visible) { outline: 3px solid var(--sun); outline-offset: 2px; }
 .ticks { display: flex; flex-wrap: wrap; gap: 8px; }
 .goal-hero { grid-template-columns: 1fr; margin-bottom: 14px; }
+.top .stat { display: none; }
+.goal-lesson > .btn.big { width: 100%; margin-top: 10px; }
 .goal-hero .count { display: flex; align-items: baseline; gap: 8px; font: 800 3rem/1 var(--disp); } .goal-hero .count small { font: 700 .95rem var(--body); opacity: .9; }
 .goal-meter { width: 100%; height: 12px; background: rgba(255, 255, 255, .25); border-radius: 99px; overflow: hidden; } .goal-meter i { display: block; height: 100%; background: var(--sun); border-radius: 99px; }
 .goal-alert { background: var(--sun-soft); padding: 10px 12px; border-radius: 14px; font-weight: 700; }
