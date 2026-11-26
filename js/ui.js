@@ -21,6 +21,10 @@
     clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.500 2M9 2h6"/>',
     download: '<path d="M12 4v11m0 0-4.500-4.500M12 15l4.500-4.500M5 20h14"/>',
     swap: '<path d="M4 8h14m0 0-4-4m4 4-4 4M20 16H6m0 0 4-4m-4 4 4 4"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    tune: '<path d="M9 3v7a3 3 0 0 0 6 0V3M12 13v8M9 21h6"/>',
+    bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>',
+    vol: '<path d="M11 5 6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 0 1 0 7"/>',
   };
   const icon = (n, cls) => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${P[n] || ''}</svg>`;
 

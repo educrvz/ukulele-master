@@ -8,11 +8,9 @@ The Notion page *Ukulele — lessons, visuals & progress* holds Edu's earlier te
 
 ## Product shape
 
-- **Journey:** song and target date first, then tuning every class, beginner foundations, song chords and sections, and an achievable beginner playthrough. The plan is recalculated after every check-in.
-- **Lesson:** one small step with instructions, recorded play-along where useful, and an optional microphone or self-reported check-in.
-- **Original course:** the 48-dose curriculum remains in code for reference, but is no longer the main route. Existing learner state is archived on version 3 migration.
-- **Practice room:** tuner, metronome, one-minute chord-change game, chord library.
-- **Diary:** song check-ins, recordings from this journey, previous-journey summary, backup export, appearance and install.
+- **Single-screen stage:** song and target date first, then a daily GCEA live tuner (once per calendar day, reopenable anytime), one-screen song lessons with side-by-side paired diagrams, and a quiet post-check-in reward screen (goal-gradient pips, next step, 4-days/week rhythm, optional ~35% 30-second chord-change bonus).
+- **Slide-over drawer (`Song · Tools · Diary`):** tucks secondary controls off the practice canvas — song facts, deadline forecast, tappable roadmap (never hard-locked), date/minutes editor, standalone tuner, metronome, 1-minute chord-change game, chord library, check-in log, recordings, previous-journey archive, report/backup export, theme, and install.
+- **Original course:** the 48-dose curriculum remains in `js/data.js` for reference; existing pre-v3 learner state is archived in `previousJourneys`.
 
 ## Architecture
 

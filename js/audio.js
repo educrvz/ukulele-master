@@ -92,6 +92,13 @@
       });
       return ch.midi.map((m, i) => 1100 + i * 500);
     },
+    string(idx) {
+      const midi = U.OPEN[idx];
+      if (midi == null) return Promise.resolve();
+      return this.load().then(() => {
+        this.pluck(midi, this.ensure().currentTime + 0.02, 0.34, 1.8);
+      });
+    },
   };
 
   /* Plays a demo spec in a loop: {seq, pat} (chords with a strum pattern) or {notes}. Half-beat slots. */
