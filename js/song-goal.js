@@ -401,7 +401,7 @@
     function lessonCue(s, song) {
       if (s.kind === 'hold') return T('Rest the body on your chest, support the neck lightly, shoulders relaxed.', 'Apoie o corpo no peito, segure o braço leve e relaxe os ombros.');
       if (s.kind === 'open') return T('Pluck from face to floor: G (Sol), C (Dó), E (Mi), A (Lá) — no fingers on frets.', 'Toque do rosto ao chão: G (Sol), C (Dó), E (Mi), A (Lá) — sem apertar casas.');
-      if (s.kind === 'downstrum') return T('Brush down gently with your index finger. Four slow, even strokes.', 'Passe o indicador suavemente para baixo. Quatro batidas lentas e iguais.');
+      if (s.kind === 'downstrum') return T('Curl your index finger softly (leave your thumb out) and brush down with the nail side.', 'Curve de leve o indicador (sem usar o polegar) e deslize para baixo com o lado da unha.');
       if (s.kind === 'chord') return T(`Form ${name(s.chord)}. Pluck each string to check clarity, then four slow downstrums.`, `Monte ${name(s.chord)}. Toque cada corda para conferir o som e faça quatro batidas lentas.`);
       if (s.kind === 'change') return T(`Two slow downstrums on ${name(s.chords[0])}, pause, then two on ${name(s.chords[1])}.`, `Duas batidas lentas em ${name(s.chords[0])}, pause, depois duas em ${name(s.chords[1])}.`);
       if (s.kind === 'pulse') return T(`Count 1–${song?.beats || 4} steadily. One gentle downstrum on each beat.`, `Conte 1–${song?.beats || 4} firme. Uma batida suave para baixo em cada tempo.`);
@@ -446,8 +446,16 @@
       if (s.kind === 'downstrum') {
         const beats = song?.beats || 4;
         const pat = beats === 3 ? 'D.D.D.' : 'D.D.D.D.';
-        return `<div class="goal-diagram compact">${diagrams.strum(pat, beats)}
-          <p class="sound compact-sound">${T('↓ soft downstrum · faint ↓ hand returns silently', '↓ batida suave para baixo · ↓ clara: a mão volta sem tocar')}</p></div>`;
+        return `<div class="goal-diagram compact strum-card">
+            ${diagrams.downstrumGuide()}
+            <div class="strum-tips">
+              <span><b>1</b> ${T('Relax your wrist — let your index nail brush G→A', 'Pulso solto — a unha do indicador desliza de G→A')}</span>
+              <span><b>2</b> ${T('Strum where the neck meets the body (not over the hole)', 'Toque onde o braço encontra o corpo (não sobre a boca)')}</span>
+            </div>
+          </div>
+          <div class="goal-diagram compact">${diagrams.strum(pat, beats)}
+            <p class="sound compact-sound"><b>${T('How to practice:', 'Como praticar:')}</b> ${T('Tap Play along, count 1–2–3–4 aloud, brush down on each number and lift back silently on “&”.', 'Toque em Tocar junto, conte 1–2–3–4 em voz alta, desça em cada número e volte sem tocar no “e”.')}</p>
+          </div>`;
       }
       if (s.kind === 'chord') {
         return compactChordVisual(s.chord, true) + `<p class="legend compact-legend">${T('Dots = fingers: 1 index · 2 mid · 3 ring · 4 little', 'Bolinhas = dedos: 1 ind · 2 méd · 3 anel · 4 mín')}</p>`;
@@ -523,16 +531,18 @@
             ${canPlay ? `<button type="button" class="btn sm ghost${Player.on ? ' sea' : ''}" data-goal-act="play" id="goal-play-btn">${Player.on ? `${icon('stop')} ${T('Stop', 'Parar')}` : `${icon('play')} ${T('Play along', 'Tocar junto')}`}</button>` : ''}
             ${canMic ? `<button type="button" class="btn sm ghost${micOn ? ' listening' : ''}" data-goal-act="verify" id="goal-mic-btn">${micOn ? `${icon('stop')} ${T('Stop mic', 'Parar mic')}` : `${icon('mic')} ${T('Check mic', 'Ouvir mic')}`}</button>` : ''}
           </div>` : ''}
-          ${checkinOpen
-            ? `<div class="checkin-reveal">
-                <div class="checkin-row">
-                  <button type="button" class="btn sm" data-goal-act="check" data-result="easy">${T('Clear', 'Limpo')}</button>
-                  <button type="button" class="btn sm ghost" data-goal-act="check" data-result="ok">${T('Needs work', 'Quase lá')}</button>
-                  <button type="button" class="btn sm ghost" data-goal-act="check" data-result="hard">${T('Still hard', 'Difícil')}</button>
-                </div>
-                <p class="checkin-cap">${T('Self-reported check-in · honest rating adapts your plan', 'Retorno autodeclarado · resposta sincera ajusta seu plano')}</p>
-              </div>`
-            : `<button type="button" class="btn big" data-goal-act="reveal-checkin">${T('I played it', 'Toquei')}</button>`}
+          ${s.kind === 'hold'
+            ? `<button type="button" class="btn big" data-goal-act="next-hold">${T('Next →', 'Próximo →')}</button>`
+            : checkinOpen
+              ? `<div class="checkin-reveal">
+                  <div class="checkin-row">
+                    <button type="button" class="btn sm" data-goal-act="check" data-result="easy">${T('Clear', 'Limpo')}</button>
+                    <button type="button" class="btn sm ghost" data-goal-act="check" data-result="ok">${T('Needs work', 'Quase lá')}</button>
+                    <button type="button" class="btn sm ghost" data-goal-act="check" data-result="hard">${T('Still hard', 'Difícil')}</button>
+                  </div>
+                  <p class="checkin-cap">${T('Self-reported check-in · honest rating adapts your plan', 'Retorno autodeclarado · resposta sincera ajusta seu plano')}</p>
+                </div>`
+              : `<button type="button" class="btn big" data-goal-act="reveal-checkin">${T('I played it', 'Toquei')}</button>`}
         </footer>
       </section>`;
     }
@@ -1014,6 +1024,15 @@
           if (msg) msg.textContent = T('Microphone unavailable. Tap "I played it" below.', 'Microfone indisponível. Toque em "Toquei" abaixo.');
         }
         return;
+      }
+
+      if (act === 'next-hold') {
+        stopAudioAndMic();
+        const p = plan(g, today()), s = activeStep(g, p);
+        g.mastery[s.id] = 2;
+        g.history.push({ date: today(), id: s.id, title: s.en, result: 'easy', evidence: 'self' });
+        previewStepId = null; checkinOpen = false;
+        save(); render(); return;
       }
 
       if (act === 'reveal-checkin') {

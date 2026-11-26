@@ -399,6 +399,28 @@ dialog .card { margin-top: 0; }
 .compact-legend { text-align: center; margin: 0; font-size: .76rem; }
 .open-neck { max-width: 440px; margin: 0 auto; }
 
+/* Animated index-finger downstrum illustration */
+.strum-card { display: grid; gap: 6px; padding: 8px 10px; }
+.strum-guide { max-width: 380px; margin: 0 auto; }
+.sg-body { fill: color-mix(in srgb, var(--board) 72%, var(--line)); stroke: var(--line-d); stroke-width: 1.5; }
+.sg-hole { fill: color-mix(in srgb, var(--ink) 78%, var(--bg)); }
+.sg-rosette { fill: none; stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: .7; }
+.sg-spot { fill: color-mix(in srgb, var(--sea) 16%, transparent); stroke: var(--sea); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.sg-str { font-size: 11px; font-weight: 800; text-anchor: middle; fill: var(--soft); }
+.sg-trail { fill: none; stroke: var(--sea); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.sg-hand { fill: var(--coral); stroke: var(--card); stroke-width: 1.5; }
+.sg-nail { fill: #fff6e8; opacity: .92; }
+.sg-finger { animation: strumSweep 1.8s ease-in-out infinite; transform-origin: 204px 36px; }
+@keyframes strumSweep {
+  0%, 10% { transform: translateY(-4px) rotate(-6deg); opacity: 1; }
+  48%, 58% { transform: translateY(58px) rotate(10deg); opacity: 1; }
+  78% { transform: translate(10px, 24px) rotate(0deg); opacity: .45; }
+  100% { transform: translateY(-4px) rotate(-6deg); opacity: 1; }
+}
+.strum-tips { display: grid; gap: 4px; font-size: .8rem; line-height: 1.3; color: var(--ink); }
+.strum-tips span { display: flex; align-items: baseline; gap: 7px; }
+.strum-tips b { flex: none; width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--sea-soft); color: var(--sea); font-size: .7rem; }
+
 .compact-bars { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0; }
 .bar-chip {
   min-width: 46px; min-height: 36px; padding: 4px 10px; border-radius: 11px;

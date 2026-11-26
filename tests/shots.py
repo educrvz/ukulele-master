@@ -20,9 +20,14 @@ with sync_playwright() as p:
         page.click('#goal-setup button[type="submit"]')
         page.screenshot(path=str(out / f'{tag}-{mode}-tuner.png'))
         page.click('[data-goal-act="tune-self"]')
-        # Jump to single chord C
+        page.screenshot(path=str(out / f'{tag}-{mode}-hold.png'))
+        # Jump to downstrum to verify animated index-finger guide
         page.click('#top-song')
         page.screenshot(path=str(out / f'{tag}-{mode}-drawer.png'))
+        page.click('[data-goal-act="jump-step"][data-step="downstrum"]')
+        page.screenshot(path=str(out / f'{tag}-{mode}-downstrum.png'))
+        # Jump to single chord C
+        page.click('#top-song')
         page.click('[data-goal-act="jump-step"][data-step="chord:C"]')
         page.screenshot(path=str(out / f'{tag}-{mode}-chord.png'))
         # Complete C to capture Reward stage

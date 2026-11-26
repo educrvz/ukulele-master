@@ -132,5 +132,35 @@
     return neck({ dots, label: 'notes' });
   }
 
-  window.DG = { FC, chordChart, chordNeck, soundLine, strum, noteMap, pcColor };
+  /* Animated illustration of an index-finger downstrum where the neck meets the body. */
+  function downstrumGuide() {
+    const Y = [44, 60, 76, 92];
+    let s = `<svg viewBox="0 0 360 132" class="dg strum-guide" role="img" aria-label="${T('Index finger brushing down across the four strings where the neck meets the body', 'Dedo indicador deslizando para baixo nas quatro cordas onde o braço encontra o corpo')}">`;
+    // Ukulele body curve & soundhole on right
+    s += `<path d="M174 22 C236 12 318 14 348 32 L348 106 C318 122 236 124 174 114 Z" class="sg-body"/>`;
+    s += `<circle cx="272" cy="68" r="28" class="sg-hole"/>`;
+    s += `<circle cx="272" cy="68" r="33" class="sg-rosette"/>`;
+    // Neck + fretboard on left
+    s += `<rect x="28" y="36" width="152" height="64" rx="4" class="dg-board"/>`;
+    [68, 108, 148, 178].forEach((x) => { s += `<line x1="${x}" y1="36" x2="${x}" y2="100" class="dg-fret"/>`; });
+    // Sweet-spot highlight band where neck meets body
+    s += `<rect x="166" y="30" width="32" height="76" rx="10" class="sg-spot"/>`;
+    s += `<text x="182" y="13" class="dg-cap mid">${T('sweet spot', 'ponto ideal')}</text>`;
+    // Strings G C E A
+    Y.forEach((y, i) => {
+      s += `<line x1="28" y1="${y}" x2="342" y2="${y}" class="dg-line"/>`;
+      s += `<text x="14" y="${y + 4}" class="sg-str">${U.STR[i]}</text>`;
+    });
+    // Downward motion guide arrow
+    s += `<path d="M182 38 V100 M175 92 L182 101 L189 92" class="sg-trail"/>`;
+    // Animated curved index finger brushing down (nail side faces down across strings)
+    s += `<g class="sg-finger">
+      <path d="M222 24 C206 22 196 26 189 35 C185 40 185 46 190 49 C196 52 204 48 212 42 L228 38 Z" class="sg-hand"/>
+      <ellipse cx="190" cy="42" rx="4.5" ry="3.2" transform="rotate(-22 190 42)" class="sg-nail"/>
+    </g>`;
+    s += `<text x="182" y="128" class="dg-cap mid">${T('nail side of index finger · wrist loose', 'unha do indicador · pulso solto')}</text>`;
+    return s + '</svg>';
+  }
+
+  window.DG = { FC, chordChart, chordNeck, soundLine, strum, noteMap, pcColor, downstrumGuide };
 })();

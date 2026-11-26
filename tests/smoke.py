@@ -55,28 +55,34 @@ with sync_playwright() as p:
     pg.click('[data-goal-act="tune-self"]')
     check('foundation starts with holding', 'Hold the ukulele' in pg.locator('.lesson-title').inner_text())
     check('tuning is separate from mastery', pg.evaluate("__uke.S().goal.mastery['tune'] === undefined && __uke.S().goal.tunedOn === '2026-11-26'"))
-    check('check-in buttons hidden until I played it', pg.locator('[data-goal-act="reveal-checkin"]').count() == 1 and pg.locator('[data-goal-act="check"]').count() == 0)
+    check('hold step uses Next button (nothing to play)', pg.locator('[data-goal-act="next-hold"]').count() == 1 and pg.locator('[data-goal-act="reveal-checkin"]').count() == 0)
     check_no_scroll(pg, 'hold lesson')
 
-    # 3. 2-step check-in reveal + hard keeps lesson + reward stage
+    # Tap Next on hold -> goes straight to open strings
     remaining = pg.evaluate('SongGoal.plan(__uke.S().goal, "2026-11-26").remaining')
+    pg.click('[data-goal-act="next-hold"]')
+    check('next on hold advances to open strings', 'open strings' in pg.locator('.lesson-title').inner_text())
+    check('check-in buttons hidden until I played it', pg.locator('[data-goal-act="reveal-checkin"]').count() == 1 and pg.locator('[data-goal-act="check"]').count() == 0)
+    check_no_scroll(pg, 'open strings lesson')
+
+    # 3. 2-step check-in reveal + hard keeps lesson + reward stage
     pg.click('[data-goal-act="reveal-checkin"]')
     pg.click('[data-goal-act="check"][data-result="hard"]')
     check('reward stage shows after check-in', pg.locator('.stage-reward').count() == 1)
     check_no_scroll(pg, 'reward stage (hard)')
     pg.click('[data-goal-act="continue"]')
-    check('hard check-in keeps lesson', 'Hold the ukulele' in pg.locator('.lesson-title').inner_text())
+    check('hard check-in keeps lesson', 'open strings' in pg.locator('.lesson-title').inner_text())
 
-    # Complete hold (easy) -> reward -> open strings
+    # Complete open strings (easy) -> reward -> downstrum
     pg.click('[data-goal-act="reveal-checkin"]')
     pg.click('[data-goal-act="check"][data-result="easy"]')
     check('reward shows weekly momentum', pg.locator('.rhythm-card').count() == 1 and '1/4' in pg.locator('.rhythm-head').inner_text())
     check_no_scroll(pg, 'reward stage (easy)')
     pg.click('[data-goal-act="continue"]')
-    check('next lesson is open strings', 'open strings' in pg.locator('.lesson-title').inner_text())
+    check('next lesson is downstrum with finger guide', 'downstrum' in pg.locator('.lesson-title').inner_text() and pg.locator('svg.strum-guide').count() == 1)
     check('plan recalculates after check-in', pg.evaluate('SongGoal.plan(__uke.S().goal, "2026-11-26").remaining') < remaining)
     check('history distinguishes self report', pg.evaluate("__uke.S().goal.history[0].evidence === 'self'"))
-    check_no_scroll(pg, 'open strings lesson')
+    check_no_scroll(pg, 'downstrum lesson')
 
     # Jump to single chord & 2-chord change via Song Roadmap drawer (ADR 0004: never hard-lock!)
     pg.click('#top-song')
@@ -109,7 +115,7 @@ with sync_playwright() as p:
     pg.click('#lang')
     check('Portuguese tuning view', 'Afine G' in pg.locator('.stage-tune h1').inner_text())
     pg.click('[data-goal-act="tune-self"]')
-    check('Portuguese lesson view', 'cordas soltas' in pg.locator('.lesson-title').inner_text())
+    check('Portuguese lesson view', 'batida suave' in pg.locator('.lesson-title').inner_text())
     pg.click('#lang')  # back to EN
 
     # 6. Drawer: Diary, Dark Theme, Edit minutes
@@ -124,6 +130,17 @@ with sync_playwright() as p:
     pg.click('#goal-edit button[type="submit"]')
     check('changing minutes replans goal', pg.evaluate('__uke.S().goal.minutes') == 20)
     pg.click('[data-act="closesheet"]')
+
+    # 6b. Upgrading from v3 preserves active song, mastery, history, and previousJourneys untouched!
+    pg.evaluate("""localStorage.setItem('uke-master-v1', JSON.stringify({
+      lang: 'en', onboarded: true, journeyVersion: 3, journeyStartedAt: 1700000000000,
+      goal: { title: 'Three Little Birds', artist: 'Bob Marley & The Wailers', date: '2026-12-20', minutes: 15,
+        song: SongGoal.parseSong(SONG_CATALOG[0]), mastery: { hold: 2, open: 2 },
+        history: [{ date: '2026-11-25', id: 'hold', title: 'Hold', result: 'easy', evidence: 'self' }] },
+      previousJourneys: [{ archivedAt: '2026-11-24T12:00:00Z', goal: { title: 'Legacy Song', history: [] } }]
+    }))""")
+    pg.reload()
+    check('v3 to v4 preserves history & mastery without reset', pg.evaluate("__uke.S().goal.title === 'Three Little Birds' && __uke.S().goal.mastery.open === 2 && __uke.S().goal.history.length === 1 && __uke.S().previousJourneys.length === 1"))
 
     # 7. Migration archives pre-v3 state cleanly
     pg.evaluate("localStorage.setItem('uke-master-v1', JSON.stringify({lang:'en',onboarded:true,doses:{1:{on:'2026-11-01',level:'self'}},log:[{d:'2026-11-01',id:1}],xp:20,goal:{title:'Old Song',history:[]}}))")
