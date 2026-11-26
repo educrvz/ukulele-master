@@ -2,14 +2,23 @@
 (function () {
   const U = window.UKE, { CHORDS, DOSES, ISLANDS } = U;
   const { icon, toast } = window.UI;
-  const VERSION = '2.0.0';
-  const KEY = 'uke-master-v1'; // unchanged since v1, so existing progress carries over
+  const VERSION = '3.0.0';
+  const KEY = 'uke-master-v1'; // unchanged since v1; older state is archived during migration
   const $ = (q, el) => (el || document).querySelector(q);
   const $$ = (q, el) => [...(el || document).querySelectorAll(q)];
 
   let S = { lang: null, onboarded: false, doses: {}, log: [], xp: 0, newOn: null, changes: {}, theme: 'auto' };
   try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  function migrateJourney() {
+    if (S.journeyVersion === 3) return;
+    if (S.onboarded || S.goal || S.log.length || Object.keys(S.doses).length) {
+      (S.previousJourneys ||= []).push({ archivedAt: new Date().toISOString(), goal: S.goal || null, doses: S.doses, log: S.log, xp: S.xp, changes: S.changes });
+    }
+    S.goal = null; S.onboarded = false; S.doses = {}; S.log = []; S.xp = 0; S.changes = {}; S.newOn = null;
+    S.journeyVersion = 3; S.journeyStartedAt = Date.now(); save();
+  }
+  migrateJourney();
   const T = (en, pt) => (S.lang === 'pt' ? pt : en);
   const L = (o) => (o ? o[S.lang === 'pt' ? 'pt' : 'en'] : '');
   const setLang = (l) => { S.lang = l; U.lang = l; document.documentElement.lang = l === 'pt' ? 'pt-BR' : 'en'; save(); };
@@ -132,13 +141,7 @@
     const logo = '<img class="logo" src="icons/icon.svg" alt="">';
     if (!S.lang) return `<section class="onb">${logo}<h1>Ukulele Master</h1><p class="lead">Choose your language · Escolha o idioma</p>
       <div class="col"><button class="btn big" data-act="lang" data-l="en">English</button><button class="btn big sea" data-act="lang" data-l="pt">Português</button></div></section>`;
-    return `<section class="onb">${logo}<h1>${T('Small doses. Every day.', 'Doses homeopáticas. Todo dia.')}</h1>
-      <ul class="how"><li><span class="n">${icon('eye')}</span><div><b>${T('1 minute · Look', '1 minuto · Olhar')}</b><span>${T('one idea, with a picture', 'uma ideia, com imagem')}</span></div></li>
-      <li><span class="n">${icon('hand')}</span><div><b>${T('4 minutes · Play', '4 minutos · Tocar')}</b><span>${T('one exercise, with play-along sound', 'um exercício, com som para acompanhar')}</span></div></li>
-      <li><span class="n">${icon('mic')}</span><div><b>${T('Prove', 'Provar')}</b><span>${T('the microphone listens and confirms what you played', 'o microfone escuta e confirma o que você tocou')}</span></div></li></ul>
-      <p class="lead">${T('One new dose per day. Where do you start?', 'Uma dose nova por dia. Por onde você começa?')}</p>
-      <div class="col"><button class="btn big col" data-act="start" data-p="1">${T('I already play Am, F, C and G', 'Já toco Am, F, C e G')}<small>Am (Lá menor), F (Fá maior), C (Dó maior), G (Sol maior)</small></button>
-      <button class="btn big ghost" data-act="start" data-p="0">${T('From the very beginning', 'Do comecinho')}</button></div></section>`;
+    return goalAPI.view();
   }
 
   function greeting() {
@@ -152,53 +155,7 @@
   }
 
   function homeView() {
-    const cur = currentDose(), locked = lockedToday();
-    const isl = ISLANDS[cur.isl - 1];
-    let hero;
-    if (locked) hero = `<section class="hero rest"><div class="txt"><p class="eyebrow">${T('Today’s dose', 'Dose de hoje')} ✓</p><h2>${T('Done. Let it settle.', 'Feita. Deixe assentar.')}</h2>
-      <p>${T('The next dose opens tomorrow. Consistency beats quantity.', 'A próxima dose abre amanhã. Constância vence quantidade.')}</p>
-      <p>${T('Up next', 'A seguir')}: <b>${L(cur.title)}</b></p>
-      <button class="btn light" data-act="view" data-v="practice">${T('Extra practice', 'Treino extra')} ${icon('right')}</button></div><div class="art emo" aria-hidden="true">🌙</div></section>`;
-    else hero = `<section class="hero"><div class="txt"><p class="eyebrow">${T('Today’s dose', 'Dose de hoje')} · ${cur.daily ? '★' : cur.id + '/' + DOSES.length}</p>
-      <h2>${L(cur.title)}</h2><p class="idea">${L(cur.idea)}</p>
-      <button class="btn big light" data-act="dose" data-id="${cur.id}">${icon('play')} ${T('Start · 5 minutes', 'Começar · 5 minutos')}</button>
-      ${cur.must ? `<p class="rec">${icon('mic')} ${T('This one is recorded.', 'Esta é gravada.')}</p>` : ''}</div>${heroArt(cur, isl)}</section>`;
-
-    const lv = level(), inLv = S.xp % XP_PER_LEVEL;
-    const g = S.goal, gp = g && g.song ? goalAPI.plan() : null;
-    const goalCard = g
-      ? `<button class="card" data-act="view" data-v="goal"><p class="eyebrow">${T('Song goal', 'Meta musical')}</p><h3>${escapeHTML(g.song ? g.song.title : g.title)}</h3>
-          <div class="big">${gp ? gp.days : '…'} <small>${T('days left', 'dias restantes')}</small></div><p>${gp ? T('Next', 'Próxima') + ': ' + escapeHTML(T(gp.next.en, gp.next.pt)) : T('Needs a chord source', 'Falta a fonte dos acordes')}</p></button>`
-      : `<button class="card" data-act="view" data-v="goal"><p class="eyebrow">${T('Song goal', 'Meta musical')}</p><h3>${T('A song you want to play?', 'Uma música que você quer tocar?')}</h3>
-          <p>${T('Pick the song and the date. Your lessons follow that goal.', 'Escolha a música e a data. Suas aulas seguem essa meta.')}</p></button>`;
-
-    const curIsl = cur.daily ? 0 : cur.isl;
-    let path = '';
-    for (const il of ISLANDS) {
-      const ds = DOSES.filter((d) => d.isl === il.n), dn = ds.filter((d) => isDone(d.id)).length;
-      const complete = dn === ds.length, lockedIsl = !dn && il.n !== curIsl;
-      const H = 84, off = [0, 34, 62, 34];
-      let trail = '';
-      ds.forEach((d, i) => { const x = 30 + off[i % 4], y = i * H + 30; trail += i ? ` C${30 + off[(i - 1) % 4]} ${y - H / 2}, ${x} ${y - H / 2}, ${x} ${y}` : `M${x} ${y}`; });
-      const nodes = ds.map((d, i) => {
-        const done = S.doses[d.id], isCur = d.id === cur.id && !locked, waits = d.id === cur.id && locked;
-        const cls = done ? 'done ' + done.level : isCur ? 'cur' : 'lock';
-        const badge = done ? icon(done.level === 'mic' ? 'mic' : 'check') : isCur ? icon('play') : d.must ? icon('mic') : d.id;
-        const sub = isCur ? T('Start here', 'Comece aqui') : waits ? T('Opens tomorrow', 'Abre amanhã') : done && done.level === 'mic' ? T('Verified by microphone', 'Verificada pelo microfone') : d.must ? T('Recorded check', 'Prova gravada') : '';
-        return `<li style="--o:${off[i % 4]}"><button class="node ${cls}${d.must ? ' boss' : ''}" ${done || isCur ? `data-act="dose" data-id="${d.id}"` : 'disabled'}><span class="badge">${badge}</span><span class="t">${L(d.title)}${sub ? `<small>${sub}</small>` : ''}</span></button></li>`;
-      }).join('');
-      path += `<details class="island${complete ? ' complete' : ''}${lockedIsl ? ' locked' : ''}"${il.n === curIsl ? ' open' : ''}><summary><span class="emo">${il.emoji}</span><div><h3>${L(il.name)}</h3><p>${L(il.tag)}</p></div><span class="count">${complete ? '✓ ' : ''}${dn}/${ds.length}</span><span class="chev">${icon('down')}</span></summary>
-        <div class="path"><svg class="trail" height="${ds.length * H}" aria-hidden="true"><path d="${trail}"/></svg><ol>${nodes}</ol></div></details>`;
-    }
-    const total = DOSES.length, doneN = DOSES.filter((d) => isDone(d.id)).length;
-    return `<p class="offline">${T('Offline — everything still works.', 'Sem internet — tudo continua funcionando.')}</p>
-      <header class="hello"><div><p>${new Date(today() + 'T12:00').toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })}</p><h1>${greeting()} 🌺</h1></div></header>
-      ${weekStrip()}${hero}${window.PWA ? PWA.banner(T) : ''}
-      <div class="duo">${goalCard}
-        <button class="card" data-act="view" data-v="diary"><p class="eyebrow">${T('Level', 'Nível')} ${lv + 1}</p><h3>${T(...LEVELS[lv])}</h3>
-        <div class="meter"><i style="width:${Math.min(100, (inLv / XP_PER_LEVEL) * 100)}%"></i></div><p>${lv === LEVELS.length - 1 ? S.xp + ' XP' : `${XP_PER_LEVEL - inLv} XP ${T('to the next level', 'para o próximo nível')}`}</p></button></div>
-      <div class="journey-h"><h2>${T('The journey', 'A jornada')}</h2><span class="hint">${doneN}/${total} ${T('doses', 'doses')}</span></div>${path}
-      <p class="legend">${icon('mic')} ${T('verified by microphone', 'verificado pelo microfone')} · ${icon('check')} ${T('self-reported', 'autodeclarado')}</p>`;
+    return `${window.PWA ? PWA.banner(T) : ''}${goalAPI.view()}`;
   }
   const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -423,34 +380,27 @@
   // ───────── diary
   const logTitle = (e) => { if (e.k === 'changes') return `${CHORDS[e.a].sym} ⇄ ${CHORDS[e.b].sym} · ${e.n} ${T('changes', 'trocas')}`; const d = getDose(e.id); return d ? L(d.title) : e.id; };
   function diaryView() {
-    const days = playedDays();
-    const done = Object.keys(S.doses).length, mic = Object.values(S.doses).filter((x) => x.level === 'mic').length;
-    const end = new Date(today() + 'T12:00'); end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
-    let cal = '', head = '';
-    for (let i = 34; i >= 0; i--) { const d = new Date(end); d.setDate(end.getDate() - i); const k = iso(d); if (i > 27) head += `<span>${d.toLocaleDateString(locale(), { weekday: 'narrow' })}</span>`; cal += `<i class="${days.has(k) ? 'on' : ''}${k === today() ? ' today' : ''}${k > today() ? ' fut' : ''}" title="${k}"></i>`; }
-    const rows = S.log.slice(-25).reverse().map((e) => `<li><span>${niceDate(e.d)}</span><b>${logTitle(e)}</b><span class="ev ${e.level}">${e.level === 'mic' ? icon('mic') + ' ' + T('verified', 'verificado') : icon('check') + ' ' + T('self-report', 'autodeclarado')}</span><span>${{ easy: '😀', ok: '🙂', hard: '😬' }[e.feel] || ''}</span></li>`).join('');
-    const th = S.theme || 'auto';
+    const history = S.goal?.history || [];
+    const archived = S.previousJourneys || [];
+    const steps = S.goal ? SongGoal.songSteps(S.goal) : [];
+    const rows = history.slice().reverse().map((h) => `<li><span>${niceDate(h.date)}</span><b>${escapeHTML(h.id === 'tuning' ? T('Tune GCEA', 'Afinar GCEA') : L(steps.find((s) => s.id === h.id)) || h.title)}</b><span>${h.result === 'tuned' ? T('Tuned', 'Afinado') : T(({ easy: 'Clear', ok: 'Needs practice', hard: 'Still hard' })[h.result], ({ easy: 'Limpo', ok: 'Precisa praticar', hard: 'Ainda difícil' })[h.result])}</span><span>${h.evidence === 'mic' ? T('Mic', 'Microfone') : T('Self', 'Autodeclarado')}</span></li>`).join('');
     return `<h1 class="page">${T('Diary', 'Diário')}</h1>
-      <div class="stats"><div><b>${streak()}</b>${T('day streak', 'dias seguidos')}</div><div><b>${days.size}</b>${T('days played', 'dias tocados')}</div><div><b>${done}</b>${T('doses done', 'doses feitas')}</div><div><b>${mic}</b>${T('mic-verified', 'verificadas')}</div></div>
-      <article class="card"><h3>${T('Last five weeks', 'Últimas cinco semanas')}</h3><div class="cal-h">${head}</div><div class="cal">${cal}</div></article>
-      <article class="card"><h3>${T('Recordings', 'Gravações')}</h3><div id="recs"><p class="hint">…</p></div></article>
-      <article class="card"><h3>${T('Practice log', 'Registro de prática')}</h3><ul class="log">${rows || `<li style="display:block">${T('Nothing yet. Start today’s dose.', 'Nada ainda. Comece a dose de hoje.')}</li>`}</ul></article>
-      <article class="card"><h3>${T('Share and back up', 'Compartilhar e guardar')}</h3><p class="hint">${T('Progress lives in this browser. Copy the report into your notes or an AI coach; export a backup to move devices.', 'O progresso fica neste navegador. Copie o relatório para suas notas ou para um professor de IA; exporte uma cópia para trocar de aparelho.')}</p>
-        <div class="row wrap"><button class="btn sm" data-act="report">${T('Copy progress report', 'Copiar relatório')}</button><button class="btn sm ghost" data-act="export">${icon('download')} ${T('Export backup', 'Exportar cópia')}</button>
-        <label class="btn sm ghost">${T('Import backup', 'Importar cópia')}<input type="file" id="imp" accept="application/json" hidden></label></div><p class="hint" id="shmsg" style="margin-top:10px"></p></article>
-      <article class="card"><h3>${T('App', 'Aplicativo')}</h3>
-        <div class="setrow"><b>${T('Appearance', 'Aparência')}</b><div class="seg3">${[['auto', T('Auto', 'Auto')], ['light', T('Light', 'Claro')], ['dark', T('Dark', 'Escuro')]].map(([k, l]) => `<button data-act="theme" data-t="${k}" class="${th === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-        ${window.PWA ? PWA.card(T) : ''}
-        <div class="setrow"><span class="hint">Ukulele Master ${VERSION} · <a href="https://github.com/educrvz/ukulele-master" target="_blank" rel="noopener">GitHub</a></span><button class="btn sm ghost danger" data-act="reset">${T('Reset progress', 'Zerar progresso')}</button></div></article>`;
+      <article class="card"><h3>${T('Song check-ins', 'Retornos da música')}</h3><ul class="log">${rows || `<li>${T('Your new journey has no check-ins yet.', 'Sua nova jornada ainda não tem retornos.')}</li>`}</ul></article>
+      <article class="card"><h3>${T('Recordings from this journey', 'Gravações desta jornada')}</h3><div id="recs"><p class="hint">…</p></div></article>
+      ${archived.length ? `<details class="card"><summary>${T('Previous journeys', 'Jornadas anteriores')} (${archived.length})</summary><p class="hint">${T('Old progress is preserved in this browser and included in your backup.', 'O progresso antigo está guardado neste navegador e incluído na cópia.')}</p>${archived.slice().reverse().map((a) => `<details><summary>${escapeHTML(a.goal?.title || T('Original lessons', 'Aulas originais'))} · ${escapeHTML(a.archivedAt.slice(0, 10))}</summary><ol>${(a.goal?.history || a.log || []).slice(-20).reverse().map((h) => `<li>${escapeHTML(h.date || h.d)} · ${escapeHTML(h.title || h.id)} · ${escapeHTML(h.evidence || h.level || 'self')}</li>`).join('') || `<li>${T('No entries', 'Sem registros')}</li>`}</ol></details>`).join('')}<div id="old-recs"></div></details>` : ''}
+      <article class="card"><h3>${T('Back up', 'Cópia de segurança')}</h3><p class="hint">${T('Progress stays in this browser. Export a backup to keep it or move devices.', 'O progresso fica neste navegador. Exporte uma cópia para guardar ou trocar de aparelho.')}</p><div class="row wrap"><button class="btn sm ghost" data-act="export">${icon('download')} ${T('Export backup', 'Exportar cópia')}</button><label class="btn sm ghost">${T('Import backup', 'Importar cópia')}<input type="file" id="imp" accept="application/json" hidden></label></div></article>
+      <article class="card"><h3>${T('Appearance', 'Aparência')}</h3><div class="seg3">${[['auto', T('Auto', 'Auto')], ['light', T('Light', 'Claro')], ['dark', T('Dark', 'Escuro')]].map(([k, l]) => `<button data-act="theme" data-t="${k}" class="${S.theme === k ? 'on' : ''}">${l}</button>`).join('')}</div>${window.PWA ? PWA.card(T) : ''}<p class="hint">Ukulele Master ${VERSION}</p></article>`;
   }
 
   async function loadRecs() {
-    let recs = [];
-    try { recs = (await RecStore.all()).sort((a, b) => b.id - a.id); } catch (e) {}
+    let recs = [], old = [];
+    try { const all = (await RecStore.all()).sort((a, b) => b.id - a.id); recs = all.filter((r) => r.id >= S.journeyStartedAt); old = all.filter((r) => r.id < S.journeyStartedAt); } catch (e) {}
     const el = $('#recs');
     if (!el) return;
     el.innerHTML = recs.length ? recs.map((r) => `<div class="rec"><div><b>${L(r.title)}</b><small>${niceDate(r.d)}</small></div><audio controls preload="none" src="${URL.createObjectURL(r.blob)}"></audio></div>`).join('')
       : `<p class="hint">${T('Recorded doses appear here, so you can hear your own progress.', 'As doses gravadas aparecem aqui, para você ouvir o próprio progresso.')}</p>`;
+    const oldEl = $('#old-recs');
+    if (oldEl && old.length) oldEl.innerHTML = `<h3>${T('Earlier recordings', 'Gravações anteriores')}</h3>` + old.map((r) => `<div class="rec"><div><b>${escapeHTML(L(r.title) || r.dose)}</b><small>${niceDate(r.d)}</small></div><audio controls preload="none" src="${URL.createObjectURL(r.blob)}"></audio></div>`).join('');
   }
 
   function report() {
@@ -549,7 +499,7 @@
     }
     if (e.target.id !== 'imp' || !e.target.files[0]) return;
     e.target.files[0].text().then((t) => {
-      try { const o = JSON.parse(t); if (!o || !o.doses || !o.log) throw Error('shape'); S = Object.assign(S, o); save(); setLang(S.lang || 'en'); UI.theme(S.theme); render(); toast(T('Backup imported.', 'Cópia importada.')); }
+      try { const o = JSON.parse(t); if (!o || !o.doses || !o.log) throw Error('shape'); S = Object.assign(S, o); migrateJourney(); save(); setLang(S.lang || 'en'); UI.theme(S.theme); render(); toast(T('Backup imported.', 'Cópia importada.')); }
       catch (err) { toast(T('That file is not a backup.', 'Esse arquivo não é uma cópia.')); }
     });
   });

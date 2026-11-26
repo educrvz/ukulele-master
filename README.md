@@ -1,117 +1,57 @@
 # Ukulele Master
 
-Learn ukulele in small daily doses, in English and Portuguese. One idea, one picture, one exercise, and a microphone check that confirms what you played.
+Choose a song and a date, then learn the ukulele from the beginning through short lessons that lead toward that song. The plan adapts after every check-in. English and Brazilian Portuguese are supported.
 
-**Play it:** <https://ukulele-master-two.vercel.app/> — private Vercel sign-in, phone installation, and offline practice.
+**Play it:** <https://ukulele-master-two.vercel.app/> — Vercel sign-in required. The app can be installed on a phone and the starter songs work offline.
 
 <p>
-  <img src="docs/screenshots/home.png" alt="Home screen: today's dose, week strip and the journey" width="260">
-  <img src="docs/screenshots/lesson-dark.png" alt="A lesson in dark mode with both chord views" width="260">
+  <img src="docs/screenshots/home.png" alt="Three Little Birds goal and the tuning step at the start of class" width="260">
+  <img src="docs/screenshots/lesson-dark.png" alt="First song lesson in dark mode" width="260">
 </p>
 
-## What is in it
+## How it works
 
-| Screen | What it does |
-| --- | --- |
-| **Today** | Today's five-minute dose, this week's practice days, your song goal and level, and the journey: 48 doses on 8 islands, then a generated daily challenge. One new dose per day; replays are free. |
-| **Lesson** | Full-screen, three steps: **Look** (one idea with the chord diagram), **Play** (numbered steps, play-along sound, metronome, four-minute timer; the screen stays awake), **Prove** (microphone check, or an honest self-report). |
-| **Song** | Type a song or artist, select a suggestion, and set a date. The app finds and adapts a chord source, turns the song into tiny lessons, and replans after every check-in. Five starter songs work offline. |
-| **Practice** | Tuner, metronome, the one-minute chord-change game, and the full chord library. |
-| **Diary** | Streak, calendar, recordings, practice log, progress report for Notion, backup export/import, light/dark appearance, install. |
+1. Type a song or artist, choose a suggestion, pick a target date and daily practice time. “Three Little Birds” is a ready-to-play starter song.
+2. Start each class by tuning G, C, E and A. The microphone check is optional; manual confirmation is labeled as self-reported.
+3. Follow the next lesson: holding the instrument, open strings, rhythm, song chords, changes, sections and a beginner playthrough.
+4. Check in after playing. The app updates mastery, the next lesson and the deadline forecast. A hard attempt keeps the step ready for more practice.
 
-Every note and chord is shown as letter + Portuguese name, for example `G (Sol maior)`. Every chord has two views: where the fingers go, and the note each string sounds.
+The play-along uses a recorded CC0 ukulele bank from [FreePats](https://github.com/freepats/ukulele1), bundled locally for offline use. If sample loading fails, the app labels the synthetic backup. Chord-only song arrangements link to their sources; some are beginner excerpts and are labeled that way. A song and artist search needs a network connection.
 
-## Install on a phone
+Progress and recordings stay in this browser. The first visit to version 3 archives the old fixed-course progress on this device and starts the song setup again. Diary shows the current song's check-ins, lists previous journeys and earlier recordings, and can export or import a JSON progress backup. Audio recordings remain on this device and are not included in the JSON backup.
 
-1. Open <https://ukulele-master-two.vercel.app/> on the phone and sign in.
-2. **iPhone / iPad (Safari):** Share → *Add to Home Screen*.
-   **Android (Chrome):** tap *Install* on the home banner, or menu → *Install app*.
-3. Open it from the home screen. It runs full-screen and works without internet.
+## Install and run
 
-Progress and recordings are stored in that browser on that device only. Opening the old GitHub Pages address online transfers saved progress to the new address; recordings remain on the old address. To move devices, use Diary → *Export backup*, then *Import backup* on the other one.
+On iPhone, open the live link in Safari and use Share → Add to Home Screen. On Android Chrome, use the Install prompt or browser menu. Sign in to Vercel before installing. The former GitHub Pages address redirects to the protected app and transfers browser progress in the URL fragment; microphone recordings do not transfer.
 
-## Run locally
-
-No build step and no dependencies for the app itself.
+To run locally, serve the repo root:
 
 ```bash
 python3 -m http.server 8765 --bind 127.0.0.1
 ```
 
-Then open <http://127.0.0.1:8765/>. Add `?date=YYYY-MM-DD` to pretend it is another day.
+Then visit <http://127.0.0.1:8765/>. The static site has no build step or npm dependencies. The server-side `/api/search` and `/api/song` routes run on Vercel, so local song search needs a mocked route or Vercel dev.
 
 ## Test
 
-Needs Python Playwright with Chromium (headless). With the local server running:
+With the local server running:
 
 ```bash
 python3 tests/smoke.py
 node tests/song-api.test.js
-```
-
-```bash
-python3 tests/shots.py /tmp/uke-shots
-```
-
-The microphone logic has its own tests, which need only Node:
-
-```bash
 node tests/listening.test.js
 ```
 
-They push synthetic room noise, hum, taps, a voice-like sound and plucked-string strums through the real listening code, and fail if noise or talking is counted as playing. `python3 tests/fake-mic.py recording.wav` replays any WAV as the microphone in a headless browser.
+The smoke test covers first-run song selection, “Three Little Birds,” session tuning, adaptive check-ins, history migration, both languages, recorded audio, and offline load. Microphone recognition still needs calibration with a real ukulele and phone.
 
-`smoke.py` checks onboarding, all 48 doses in both languages, a full lesson, the chord-change game, in-app song suggestions and selection, dark mode, and offline use. `shots.py` saves screenshots of every screen for phone, desktop and dark mode.
+## Code and documentation
 
-## Folder layout
+- `js/song-goal.js`: song setup, foundation and song lessons, tuning gate, check-ins and planning.
+- `js/audio.js` and `audio/ukulele/`: recorded sound, sample playback and fallback. License and provenance are in the audio folder.
+- `js/app.js`: views, navigation and local migration under the unchanged `uke-master-v1` key.
+- `api/search.js`, `api/song.js`, `lib/chord-source.js`: server-side suggestions and source-linked chord lookup, with a capped AI fallback. The key is never sent to the browser.
+- `sw.js`: offline shell and sample cache; dynamic API requests bypass it.
+- [Context](docs/CONTEXT.md), [runbook](docs/RUNBOOK.md), [decisions](docs/decisions/), [progress log](PROGRESS.md).
+- Private Notion pages: [learner's record](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a) and [app guide](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94).
 
-```text
-index.html             page shell: top bar, tab bar, script tags
-manifest.webmanifest   install metadata (name, icons, shortcuts)
-sw.js                  service worker: offline cache, network-first updates
-css/style.css          design system: tokens, light + dark themes, all components
-js/
-  data.js              chords and the 48-dose curriculum (bilingual text)
-  diagrams.js          SVG chord chart, player's-view neck, strum patterns
-  dsp.js               pitch / chroma / onset maths (pure functions)
-  audio.js             synthesised demo sound and the play-along scheduler
-  mic.js               microphone checks and recordings (IndexedDB)
-  ui.js                icons, toast, confetti, haptics, wake lock, theme
-  pwa.js               service-worker registration and install prompt
-  migrate.js           one-time progress transfer from old GitHub Pages address
-  song-catalog.js      starter songs (chords only, with source links)
-  song-goal.js         Song Goal Mode: plan, lessons, check-ins
-  app.js               views, navigation, progress (localStorage `uke-master-v1`)
-icons/                 app icons (SVG source + generated PNGs)
-tools/make-icons.py    regenerates the PNG icons from icons/icon.svg
-tests/                 smoke test and screenshot script
-api/song.js            server-side lookup route and capped model fallback
-lib/chord-source.js    direct chord-source search and short section extraction
-docs/                  CONTEXT.md, RUNBOOK.md, decisions/, screenshots/
-AGENTS.md              rules for AI coding agents (CLAUDE.md / GEMINI.md point here)
-PROGRESS.md            shared change log between models, newest first
-```
-
-## Documentation
-
-- [docs/CONTEXT.md](docs/CONTEXT.md) — who it is for, how it is built, data model.
-- [docs/RUNBOOK.md](docs/RUNBOOK.md) — run, test, deploy, roll back.
-- [docs/decisions/](docs/decisions/) — lasting choices and why.
-- [PROGRESS.md](PROGRESS.md) — what changed, when, and what is still unverified.
-- Learner's home page and class log (private Notion): [Ukulele — lessons, visuals & progress](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a).
-- App guide for the learner (private Notion): [Ukulele Master app — guide & documentation](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94).
-
-## Hosting
-
-| Host | Address | Use |
-| --- | --- | --- |
-| Vercel | <https://ukulele-master-two.vercel.app/> | Protected app and song lookup; branch preview links. |
-| GitHub Pages | <https://educrvz.github.io/ukulele-master/> | Public redirect to Vercel, carrying local progress in the URL fragment. |
-
-Progress is saved per address. The old address transfers its localStorage state on an online visit.
-
-## Honest limits
-
-- Microphone checks have not yet been calibrated with a real ukulele and a real phone microphone.
-- Demonstration sound is synthesised, not a recording.
-- Automatic song lookup needs an internet connection and a trustworthy chord source. If search fails, a manual chord-only import is available.
+The [GitHub repository](https://github.com/educrvz/ukulele-master) is public. The live Vercel app is protected by sign-in. Browser-local usage and recordings are not part of the repository.

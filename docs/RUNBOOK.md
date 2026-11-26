@@ -8,17 +8,17 @@
 | Code | https://github.com/educrvz/ukulele-master (public, branch `main`) |
 | Main hosting + branch previews | Vercel project `ukulele-master` in team `educrvzs-projects`, connected to the GitHub repo; deployment protection enabled |
 | Old public address | https://educrvz.github.io/ukulele-master/ redirects to the private app, transferring local progress in a URL fragment |
-| Local folder | `~/Documents/03 Software & AI/Claude/Code/ukulele-master` |
+| Local folder | `~/Documents/Codex/2026-11-23/i-want-you-to-create-a/work/ukulele-master` |
 | Learner's record | Notion: [Ukulele — lessons, visuals & progress](https://app.notion.com/p/417eeae1044a8102acf7dc2bdce60a7a) |
 | App guide in Notion | [Ukulele Master app — guide & documentation](https://app.notion.com/p/421eeae1044a8113b377fd6bcdeb3c94) |
 
 ### Progress when moving addresses
 
-Saved progress belongs to the web address it was made on. Opening the old GitHub Pages address online redirects to Vercel with the saved `uke-master-v1` state in the URL fragment. Vercel imports it if no state exists there; if there is already state, it asks before replacing it. The source copy remains on the old address. IndexedDB microphone recordings do not transfer. Preview deployments have their own origin and local progress.
+Saved progress belongs to the web address it was made on. Version 3 archives prior course state in `previousJourneys` under the same localStorage key and starts new song setup. Archive data is included in Diary backup export. Previous IndexedDB recordings remain stored on that device under Previous journeys in Diary. The JSON backup and old-origin transfer exclude recording audio. Opening the old GitHub Pages address online redirects to Vercel with the saved `uke-master-v1` state in the URL fragment. Vercel imports it if no state exists there; if there is already state, it asks before replacing it. The source copy remains on the old address. IndexedDB microphone recordings do not transfer. Preview deployments have their own origin and local progress.
 
 ### Vercel settings
 
-- Framework: none (static files plus `api/song.js`; no build command, output is the repository root).
+- Framework: none (static files plus `api/search.js` and `api/song.js`; no build command, output is the repository root).
 - Production branch: `main`. Every push to `main` deploys to production; other branches get preview deployments.
 - Plan: Hobby. AI Gateway key and project budgets are each $2/day, with 50/75/100% key alerts. These are soft caps; a crossing request may finish. Do not enable automatic top-ups or overage.
 - Song search: `api/search.js` returns distinct songs from title and artist searches in a public chord index. The user selects one. `lib/chord-source.js` then keeps only short chord sequences and the source URL, transposing into supported ukulele shapes. `api/song.js` tries `openai/gpt-5-mini` with web search only if that source path fails. That model answered on the current free AI Gateway tier; direct source lookup has no model charge. The model may decline when its search results lack reliable chord details. No credits were purchased. No AI prompt or JSON importer is shown in the app.
@@ -43,7 +43,7 @@ Must end with "All checks passed." It needs the local server above and Python Pl
 
 ## Deploy
 
-1. Work on a branch, run the smoke test, open a pull request.
+1. Work on a branch, run the smoke test and song API test, inspect phone screenshots, then open a pull request.
 2. Merge into `main`. Vercel deploys the static files and the function; GitHub Pages updates its redirect.
 3. Open the protected live URL and test a song lookup. Installed copies update themselves the next time they are opened online; a "New version ready" notice offers a reload.
 
@@ -63,7 +63,7 @@ Vercel and Pages redeploy the previous state. Saved progress is not touched by a
 
 ## Force every device to drop its cached files
 
-Only if a broken file got cached. Change the `CACHE` name in `sw.js` (for example `uke-master-shell-v3`) and deploy. Old caches are deleted when the new worker activates.
+Only if a broken file got cached. Change the `CACHE` name in `sw.js` (currently `uke-master-shell-v3`) and deploy. New sound assets must be in `SHELL`. Dynamic `/api/` requests are never cached. Old caches are deleted when the new worker activates.
 
 ## Change the app icon
 

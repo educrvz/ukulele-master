@@ -1,8 +1,11 @@
-/* Synthesised demonstration sound (not a recording of a real ukulele) + play-along scheduler. */
+/* Recorded FreePats ukulele samples, with an explicit synth fallback, and play-along scheduler. */
 (function () {
   const U = window.UKE;
+  const PITCHES = [60, 62, 64, 66, 67, 69, 71, 73, 75, 77, 79, 81, 84];
+  const FILES = ['C4', 'D4', 'E4', 'F#4', 'G4', 'A4', 'B4', 'C#5', 'D#5', 'F5', 'G5', 'A5', 'C6'];
+  const TUNE_CENTS = [-5, -8, -2, -11, -1, 0, 0, 0, 3, 4, 6, 8, 4];
   const Snd = {
-    ctx: null,
+    ctx: null, samples: null, loading: null, mode: 'loading',
     ensure() {
       if (!this.ctx) {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -13,9 +16,37 @@
       if (this.ctx.state === 'suspended') this.ctx.resume();
       return this.ctx;
     },
+    load() {
+      if (this.loading) return this.loading;
+      this.loading = (async () => {
+        const c = this.ensure();
+        try {
+          const names = [...FILES, 'body-tap', 'chuck'];
+          const buffers = await Promise.all(names.map(async (name) => {
+            const res = await fetch(`audio/ukulele/${encodeURIComponent(name)}.mp3`);
+            if (!res.ok) throw Error(`sample ${name}`);
+            return c.decodeAudioData(await res.arrayBuffer());
+          }));
+          this.samples = buffers;
+          this.mode = 'recorded';
+        } catch (e) { this.mode = 'synth'; }
+        return this.mode;
+      })();
+      return this.loading;
+    },
     pluck(midi, t, vel, dur) {
       const c = this.ensure(), f = DSP.midiToFreq(midi);
       t = t || c.currentTime; vel = vel || 0.25; dur = dur || 1.6;
+      if (this.samples) {
+        const idx = PITCHES.reduce((best, pitch, i) => Math.abs(pitch - midi) < Math.abs(PITCHES[best] - midi) ? i : best, 0);
+        const src = c.createBufferSource(), gain = c.createGain();
+        src.buffer = this.samples[idx];
+        src.playbackRate.value = 2 ** ((midi - PITCHES[idx] - TUNE_CENTS[idx] / 100) / 12);
+        gain.gain.setValueAtTime(Math.min(0.9, vel * 2.2), t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + Math.min(dur, src.buffer.duration / src.playbackRate.value));
+        src.connect(gain).connect(this.out); src.start(t);
+        return;
+      }
       const g = c.createGain(), lp = c.createBiquadFilter();
       lp.type = 'lowpass'; lp.frequency.setValueAtTime(4200, t); lp.frequency.exponentialRampToValueAtTime(900, t + dur);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -40,22 +71,39 @@
       src.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 1.2; g.gain.value = vel;
       src.connect(bp).connect(g).connect(this.out); src.start(t);
     },
-    chuck(t) { this.noise(t, 0.06, 1800, 0.5); },
-    click(t, accent) { this.noise(t, 0.03, accent ? 2600 : 1700, accent ? 0.7 : 0.4); },
+    chuck(t) {
+      if (!this.samples) return this.noise(t, 0.06, 1800, 0.5);
+      const c = this.ensure(), src = c.createBufferSource(), g = c.createGain();
+      src.buffer = this.samples[FILES.length + 1]; g.gain.value = 0.5;
+      src.connect(g).connect(this.out); src.start(t || c.currentTime);
+    },
+    click(t, accent) {
+      if (!this.samples) return this.noise(t, 0.03, accent ? 2600 : 1700, accent ? 0.7 : 0.4);
+      const c = this.ensure(), src = c.createBufferSource(), g = c.createGain();
+      src.buffer = this.samples[FILES.length]; g.gain.value = accent ? 0.32 : 0.18;
+      src.connect(g).connect(this.out); src.start(t || c.currentTime);
+    },
     chord(id) {
-      const ch = U.CHORDS[id], c = this.ensure(), t = c.currentTime + 0.05;
-      this.strum(ch.midi, t, 'D');
-      ch.midi.forEach((m, i) => this.pluck(m, t + 1.1 + i * 0.5, 0.3, 1.2));
+      const ch = U.CHORDS[id];
+      this.load().then(() => {
+        const t = this.ensure().currentTime + 0.05;
+        this.strum(ch.midi, t, 'D');
+        ch.midi.forEach((m, i) => this.pluck(m, t + 1.1 + i * 0.5, 0.3, 1.2));
+      });
       return ch.midi.map((m, i) => 1100 + i * 500);
     },
   };
 
   /* Plays a demo spec in a loop: {seq, pat} (chords with a strum pattern) or {notes}. Half-beat slots. */
   const Player = {
-    timer: null, gen: 0,
-    start(demo, bpm, opts) {
+    timer: null, gen: 0, loading: false,
+    async start(demo, bpm, opts) {
       this.stop();
       const gen = this.gen;
+      this.loading = true;
+      await Snd.load();
+      if (this.gen !== gen) return;
+      this.loading = false;
       const c = Snd.ensure();
       const o = opts || {};
       const slotDur = demo.notes ? 60 / bpm : 60 / bpm / 2;
@@ -86,8 +134,8 @@
       this.timer = setInterval(tick, 25);
       tick();
     },
-    stop() { if (this.timer) clearInterval(this.timer); this.timer = null; this.gen++; },
-    get on() { return !!this.timer; },
+    stop() { if (this.timer) clearInterval(this.timer); this.timer = null; this.loading = false; this.gen++; },
+    get on() { return !!this.timer || this.loading; },
   };
 
   window.Snd = Snd;

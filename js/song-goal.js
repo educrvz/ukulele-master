@@ -17,7 +17,10 @@
     if (!raw || typeof raw !== 'object') throw Error('song');
     const title = String(raw.title || '').trim().slice(0, 120);
     if (!title) throw Error('title');
-    const sections = (raw.sections || []).slice(0, 12).map((s) => {
+    const inputSections = Array.isArray(raw.sections) ? raw.sections : [];
+    let truncated = Boolean(raw.truncated) || inputSections.length > 12;
+    const sections = inputSections.slice(0, 12).map((s) => {
+      if ((s.bars || s.chords || []).length > 64) truncated = true;
       const bars = (s.bars || s.chords?.map((c) => [c]) || []).slice(0, 64).map((bar) => {
         const names = (Array.isArray(bar) ? bar : [bar]).filter(Boolean).map((x) => String(x).replace(/♭/g, 'b').trim());
         if (!names.length || names.some((c) => !CHORDS[c])) throw Error('chord');
@@ -27,11 +30,16 @@
       return { name: String(s.name || 'Section').trim().slice(0, 40), repeats: Math.max(1, Math.min(4, Number(s.repeats) || 1)), bars };
     });
     if (!sections.length) throw Error('sections');
-    return { title, artist: String(raw.artist || '').trim().slice(0, 100), source: validUrl(raw.source), key: String(raw.key || '').slice(0, 12), originalKey: String(raw.originalKey || '').slice(0, 12), tempo: Math.max(40, Math.min(200, Number(raw.tempo) || 72)), beats: Number(raw.beats) === 3 ? 3 : 4, strum: String(raw.strum || '').slice(0, 40), sections };
+    return { title, artist: String(raw.artist || '').trim().slice(0, 100), source: validUrl(raw.source), key: String(raw.key || '').slice(0, 12), originalKey: String(raw.originalKey || '').slice(0, 12), tempo: Math.max(40, Math.min(200, Number(raw.tempo) || 72)), beats: Number(raw.beats) === 3 ? 3 : 4, strum: String(raw.strum || '').slice(0, 40), coverage: raw.coverage === 'full' && !truncated ? 'full' : 'excerpt', truncated, sections };
   }
 
   function songSteps(goal) {
-    if (!goal.song) return [];
+    const steps = [
+      { id: 'hold', kind: 'hold', en: 'Hold the ukulele comfortably', pt: 'Segurar o ukulele com conforto', cost: 5 },
+      { id: 'open', kind: 'open', en: 'Hear and play the open strings', pt: 'Ouvir e tocar as cordas soltas', cost: 5 },
+      { id: 'downstrum', kind: 'downstrum', en: 'Make a gentle downstrum', pt: 'Fazer uma batida suave para baixo', cost: 5 },
+    ];
+    if (!goal.song) return steps;
     const song = goal.song;
     const seq = song.sections.flatMap((s) => s.bars.flatMap((bar) => bar.filter((c, i) => i === 0 || c !== bar[i - 1])));
     const unique = [...new Set(seq)];
@@ -40,16 +48,14 @@
       const pair = `${seq[i - 1]}:${seq[i]}`;
       if (seq[i] !== seq[i - 1] && !transitions.includes(pair)) transitions.push(pair);
     }
-    const steps = [];
-    if (!goal.skill.tune) steps.push({ id: 'tune', kind: 'tune', en: 'Tune the four strings', pt: 'Afinar as quatro cordas', cost: 5 });
-    unique.forEach((c) => { if (!goal.skill.chords.includes(c)) steps.push({ id: `chord:${c}`, kind: 'chord', chord: c, en: `${CHORDS[c].label} clearly`, pt: `${CHORDS[c].label} com som limpo`, cost: 10 }); });
+    unique.forEach((c) => { if (!goal.skill?.chords?.includes(c)) steps.push({ id: `chord:${c}`, kind: 'chord', chord: c, en: `${CHORDS[c].label} clearly`, pt: `${CHORDS[c].label} com som limpo`, cost: 10 }); });
     transitions.slice(0, 8).forEach((pair) => {
       const [a, b] = pair.split(':');
       steps.push({ id: `change:${pair}`, kind: 'change', chords: [a, b], en: `${CHORDS[a].label} to ${CHORDS[b].label}`, pt: `${CHORDS[a].label} para ${CHORDS[b].label}`, cost: 10 });
     });
-    if (!goal.skill.strum) steps.push({ id: 'pulse', kind: 'pulse', en: 'Keep a steady pulse', pt: 'Manter o pulso firme', cost: 8 });
+    steps.push({ id: 'pulse', kind: 'pulse', en: 'Keep a steady pulse', pt: 'Manter o pulso firme', cost: 8 });
     song.sections.forEach((s, i) => steps.push({ id: `section:${i}`, kind: 'section', section: i, en: `Play ${s.name}`, pt: `Tocar ${s.name}`, cost: 15 }));
-    steps.push({ id: 'playthrough', kind: 'playthrough', en: 'Play the song from start to finish', pt: 'Tocar a música do início ao fim', cost: 20 });
+    steps.push({ id: 'playthrough', kind: 'playthrough', en: song.coverage === 'full' ? 'Play the song from start to finish' : 'Play the beginner excerpt from start to finish', pt: song.coverage === 'full' ? 'Tocar a música do início ao fim' : 'Tocar o trecho iniciante do início ao fim', cost: 20 });
     return steps;
   }
 
@@ -77,6 +83,7 @@
     let lookupError = '';
     let searchTimer = null;
     let searchController = null;
+    let sessionReady = false;
     const onlineLookup = location.protocol === 'https:' && location.hostname !== 'educrvz.github.io' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 
     function selectSong(title, artist, button) {
@@ -129,12 +136,8 @@
           <p id="song-selected" class="hint" role="status"></p><input name="title" type="hidden"><input name="artist" type="hidden">
           <div><p class="hint">${T('Ready-to-play starter songs', 'Músicas iniciais prontas para tocar')}</p><div class="chips">${catalog.map((s) => `<button type="button" class="chip" data-goal-act="pick-song" data-title="${esc(s.title)}" data-artist="${esc(s.artist || '')}">${esc(s.title)}</button>`).join('')}</div></div>
           <div class="goal-fields"><label>${T('I want to play it by', 'Quero tocar até')}<input name="date" type="date" min="${today()}" value="${addDays(today(), 21)}" required></label>
-          <label>${T('Minutes per day', 'Minutos por dia')}<select name="minutes"><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20">20</option></select></label></div>
-          <fieldset><legend>${T('Quick skill check', 'Checagem rápida')}</legend>
-            <div class="ticks"><label class="tick"><input type="checkbox" name="tune"> ${T('I can tune my ukulele', 'Sei afinar o ukulele')}</label>
-            <label class="tick"><input type="checkbox" name="strum"> ${T('I can keep an even downstrum', 'Consigo manter batidas para baixo regulares')}</label></div>
-            <p class="hint" style="margin:0">${T('Chords I can play clearly', 'Acordes que consigo tocar com som limpo')}</p><div class="ticks">${['C', 'G', 'Am', 'F', 'D', 'Em', 'Dm', 'A'].map((c) => `<label class="tick"><input type="checkbox" name="chord" value="${c}"> ${esc(name(c))}</label>`).join('')}</div>
-          </fieldset><button class="btn big" type="submit" disabled>${T('Build my plan', 'Montar meu plano')}</button></form>
+          <label>${T('Minutes per day', 'Minutos por dia')}<select name="minutes"><option value="5">5</option><option value="10">10</option><option value="15" selected>15</option><option value="20">20</option></select></label></div>
+          <button class="btn big" type="submit" disabled>${T('Build my plan', 'Montar meu plano')}</button></form>
         <p class="hint">${T('Select a suggested song first. Progress stays on this device.', 'Selecione uma música sugerida. O progresso fica neste aparelho.')}</p>`;
     }
 
@@ -157,7 +160,7 @@
         if (!sameTitle(song.title, g.title)) throw Error('different title');
         if (!song.source) throw Error('source');
         if (g !== goal()) return;
-        g.title = song.title; g.artist = song.artist; g.song = song; g.mastery = {}; g.history = []; save();
+        g.title = song.title; g.artist = song.artist; g.song = song; save();
       } catch (error) {
         lookupError = error.message === 'different title' ? T('The chord source named a different song. Choose another result.', 'A fonte de acordes indicou outra música. Escolha outro resultado.') : T('Could not verify this song right now. Try again.', 'Não consegui verificar esta música agora. Tente de novo.');
       } finally { lookupBusy = false; render(); }
@@ -166,7 +169,9 @@
     function lesson(g, p) {
       const s = p.next, song = g.song, heard = s.chord ? [s.chord] : s.chords || (s.section != null ? [...new Set(song.sections[s.section].bars.flat())].slice(0, 3) : []);
       let instruction = '';
-      if (s.kind === 'tune') instruction = T('Tune G (Sol), C (Dó), E (Mi), A (Lá), from face to floor. Use the tuner in Practice.', 'Afine G (Sol), C (Dó), E (Mi), A (Lá), do rosto para o chão. Use o afinador em Treino.');
+      if (s.kind === 'hold') instruction = T('Sit comfortably. Rest the body against your chest, support the neck lightly, and keep your shoulders relaxed.', 'Sente-se com conforto. Apoie o corpo no peito, segure o braço com leveza e relaxe os ombros.');
+      if (s.kind === 'open') instruction = T('Pluck the strings from face to floor: G, C, E, A. Hear each one ring without touching a fret.', 'Toque as cordas do rosto para o chão: G, C, E, A. Ouça cada uma soar sem apertar uma casa.');
+      if (s.kind === 'downstrum') instruction = T('Brush down gently with your index finger. Try four slow strokes, leaving space between them.', 'Passe o indicador suavemente para baixo. Faça quatro batidas lentas, com espaço entre elas.');
       if (s.kind === 'chord') instruction = T(`Form ${name(s.chord)}. Pluck each string, then play four slow downstrums. Listen for buzzes.`, `Monte ${name(s.chord)}. Toque cada corda e depois faça quatro batidas lentas para baixo. Ouça se há zumbidos.`);
       if (s.kind === 'change') instruction = T(`Play two downstrums on ${name(s.chords[0])}, pause, then two on ${name(s.chords[1])}. Repeat slowly.`, `Faça duas batidas em ${name(s.chords[0])}, pause, depois duas em ${name(s.chords[1])}. Repita devagar.`);
       if (s.kind === 'pulse') instruction = T(`Count ${song.beats} beats aloud. One gentle downstrum per beat at a comfortable pace.`, `Conte ${song.beats} tempos em voz alta. Uma batida suave para baixo por tempo, em ritmo confortável.`);
@@ -174,12 +179,12 @@
       if (s.kind === 'playthrough' || s.kind === 'rehearse') instruction = T('Play from the first section to the last at a comfortable tempo. A pause is fine; note the hardest change.', 'Toque da primeira à última parte em andamento confortável. Pode pausar; observe a troca mais difícil.');
       const section = s.kind === 'section' ? song.sections[s.section] : null;
       return `<article class="card goal-lesson"><p class="eyebrow">${T('Today’s five-minute lesson', 'Aula de cinco minutos de hoje')}</p><h3>${esc(T(s.en, s.pt))}</h3>
-        <p>${T('Minute 1: look at the shapes. Minutes 2–5:', 'Minuto 1: veja os desenhos. Minutos 2–5:')} ${esc(instruction)}</p>
+        <p>${s.kind === 'hold' || s.kind === 'open' ? T('Start slowly:', 'Comece devagar:') : T('Minute 1: look at the shapes. Minutes 2–5:', 'Minuto 1: veja os desenhos. Minutos 2–5:')} ${esc(instruction)}</p>
         ${section ? `<div class="goal-bars">${section.bars.map((bar) => `<span>${bar.filter((c, i) => i === 0 || c !== bar[i - 1]).map((c) => esc(name(c))).join(' · ')}</span>`).join('')}</div>` : ''}
         ${heard.map((c) => `<div class="goal-diagram"><h4>${esc(name(c))}</h4><div class="pair"><figure>${diagrams.chordChart(CHORDS[c])}<figcaption>${T('Finger placement', 'Posição dos dedos')}</figcaption></figure><figure>${diagrams.chordNeck(CHORDS[c])}<figcaption>${T('Sounding notes', 'Notas que soam')}</figcaption></figure></div><p class="sound">${diagrams.soundLine(CHORDS[c])}</p></div>`).join('')}
-        <div class="goal-checkins"><button class="btn sm ghost" data-goal-act="play">▶ ${T('Play-along sound', 'Som para acompanhar')}</button>
+        <div class="goal-checkins">${s.kind === 'hold' ? '' : `<button class="btn sm ghost" data-goal-act="play">▶ ${T('Play-along sound', 'Som para acompanhar')}</button>`}
         ${['tune', 'chord', 'change', 'pulse'].includes(s.kind) ? `<button class="btn sm ghost" data-goal-act="verify">🎤 ${T('Microphone check', 'Checagem com microfone')}</button>` : ''}</div>
-        <p id="goal-audio-msg" class="hint" role="status">${T('The play-along sound is synthesized. Microphone recognition has not yet been calibrated with a real ukulele.', 'O som para acompanhar é sintetizado. O reconhecimento por microfone ainda não foi calibrado com um ukulele real.')}</p>
+        <p id="goal-audio-msg" class="hint" role="status">${T('Play-along uses recorded ukulele notes when available. Pause it before using the microphone.', 'O acompanhamento usa notas de ukulele gravadas quando disponíveis. Pare o som antes de usar o microfone.')}</p>
         <p class="hint">${T('Check in only after playing. The buttons below are self-reported.', 'Faça o retorno só depois de tocar. Os botões abaixo são autodeclarados.')}</p>
         <div class="goal-checkins"><button class="btn sm" data-goal-act="check" data-result="easy">${T('Clear and comfortable', 'Limpo e confortável')}</button><button class="btn sm ghost" data-goal-act="check" data-result="ok">${T('Played, needs practice', 'Toquei, preciso praticar')}</button><button class="btn sm ghost" data-goal-act="check" data-result="hard">${T('Tried, still hard', 'Tentei, ainda difícil')}</button></div></article>`;
     }
@@ -193,16 +198,25 @@
       return `<section class="hero goal-hero"><div class="txt" style="align-items:stretch"><p class="eyebrow">${T('Song goal', 'Meta musical')}</p><h2>${esc(g.song?.title || g.title)}</h2>${g.song?.artist || g.artist ? `<p>${esc(g.song?.artist || g.artist)}</p>` : ''}
         <div class="count">${p.days} <small>${T('days until', 'dias até')} ${dateLabel(g.date)} · ${g.minutes} ${T('min/day', 'min/dia')}</small></div>
         ${g.song ? `<div class="goal-meter" role="img" aria-label="${percent}%"><i style="width:${percent}%"></i></div><p><b>${percent}%</b> ${T('practiced steps', 'etapas praticadas')} · ${forecast}</p>` : ''}</div></section>
+        ${sessionReady ? lesson(g, p) : tuningCard()}
         ${g.song ? `<article class="card"><div class="goal-facts"><span>${src}</span><span>${T('Key', 'Tom')}: ${esc(g.song.key || '—')}${g.song.originalKey && g.song.originalKey !== g.song.key ? ` (${T('transposed from', 'transposto de')} ${esc(g.song.originalKey)})` : ''}</span><span>${g.song.beats}/4</span><span>${T('practice tempo', 'andamento de treino')} ${g.song.tempo} BPM</span>${g.song.strum ? `<span>${esc(g.song.strum)}</span>` : ''}</div>
+          ${g.song.coverage !== 'full' ? `<p class="goal-alert">${T('This is a sourced beginner excerpt. The full recording may contain more sections.', 'Este é um trecho iniciante com fonte. A gravação completa pode ter mais partes.')}${g.song.truncated ? ' ' + T('The source chart was shortened for practice.', 'A cifra da fonte foi reduzida para o treino.') : ''}</p>` : ''}
           <p>${T('Remaining focused practice', 'Treino focado restante')}: <b>${p.remaining} ${T('minutes', 'minutos')}</b>. ${T('One-session cram', 'Tudo de uma vez')}: ${Math.ceil(p.remaining / 60)}h ${p.remaining % 60}m. ${T('The last 30% of days are reserved for rehearsal and missed sessions.', 'Os últimos 30% dos dias ficam para ensaio e sessões perdidas.')}</p>
           ${p.remaining > p.capacity ? `<p class="goal-alert">${T(`At ${g.minutes} minutes/day, you need about ${p.requiredDays} practice days.`, `Com ${g.minutes} minutos/dia, você precisa de cerca de ${p.requiredDays} dias de treino.`)}</p>` : ''}
           <details><summary>${T('Upcoming plan', 'Próximas aulas')}</summary><ol>${p.schedule.slice(0, 12).map((s) => `<li>${dateLabel(s.date)} · ${esc(T(s.en, s.pt))}</li>`).join('')}</ol></details></article>
-          ${lesson(g, p)}<article class="card"><h3>${T('Check-in history', 'Histórico de retornos')}</h3><ol class="goal-history">${g.history.slice(-8).reverse().map((h) => `<li>${dateLabel(h.date)} · ${esc(h.title)} · ${esc(T(({easy:'clear',ok:'needs practice',hard:'still hard'})[h.result],({easy:'limpo',ok:'precisa praticar',hard:'ainda difícil'})[h.result]))} · ${h.evidence === 'mic' ? T('microphone verified', 'verificado por microfone') : T('self-report', 'autodeclarado')}</li>`).join('') || `<li>${T('No practice reported yet.', 'Nenhum treino registrado ainda.')}</li>`}</ol></article>` : pendingSong(g)}
+          <article class="card"><h3>${T('Check-in history', 'Histórico de retornos')}</h3><ol class="goal-history">${g.history.slice(-8).reverse().map((h) => `<li>${dateLabel(h.date)} · ${esc(h.id === 'tuning' ? T('Tune GCEA', 'Afinar GCEA') : T(p.steps.find((s) => s.id === h.id)?.en || h.title, p.steps.find((s) => s.id === h.id)?.pt || h.title))} · ${h.result === 'tuned' ? T('ready to play', 'pronto para tocar') : esc(T(({easy:'clear',ok:'needs practice',hard:'still hard'})[h.result],({easy:'limpo',ok:'precisa praticar',hard:'ainda difícil'})[h.result]))} · ${h.evidence === 'mic' ? T('microphone verified', 'verificado por microfone') : T('self-report', 'autodeclarado')}</li>`).join('') || `<li>${T('No practice reported yet.', 'Nenhum treino registrado ainda.')}</li>`}</ol></article>` : pendingSong(g)}
         <details class="card goal-edit"><summary>${T('Change date or minutes', 'Alterar data ou minutos')}</summary>
           <form id="goal-edit"><div class="goal-fields"><label>${T('I want to play it by', 'Quero tocar até')}<input name="date" type="date" min="${today()}" value="${esc(g.date)}" required></label>
           <label>${T('Minutes per day', 'Minutos por dia')}<select name="minutes">${[5, 10, 15, 20].map((m) => `<option value="${m}"${m === g.minutes ? ' selected' : ''}>${m}</option>`).join('')}</select></label></div>
           <button class="btn sea" type="submit">${T('Save and replan', 'Salvar e replanejar')}</button></form></details>
         <div class="row wrap goal-tools"><button class="btn sm ghost danger" data-goal-act="remove">${T('Start another song', 'Começar outra música')}</button></div>`;
+    }
+    function tuningCard() {
+      return `<article class="card goal-lesson"><p class="eyebrow">${T('Start every class', 'Comece toda aula')}</p><h3>${T('Tune G · C · E · A', 'Afine G · C · E · A')}</h3>
+        <p>${T('From the string nearest your face to the one nearest the floor. Turn each peg slowly, pluck again, and listen. You can use the microphone or confirm the tuning yourself.', 'Da corda mais perto do rosto até a mais perto do chão. Gire cada tarraxa devagar, toque de novo e escute. Use o microfone ou confirme a afinação por conta própria.')}</p>
+        <div class="goal-checkins"><button class="btn sm ghost" data-goal-act="tune-play">▶ ${T('Hear GCEA', 'Ouvir GCEA')}</button><button class="btn sm ghost" data-goal-act="tune-verify">🎤 ${T('Check with microphone', 'Conferir com microfone')}</button></div>
+        <p id="goal-audio-msg" class="hint" role="status">${T('Stop the reference sound before using the microphone. Silence does not confirm tuning.', 'Pare o som de referência antes de usar o microfone. Silêncio não confirma afinação.')}</p>
+        <button class="btn big" data-goal-act="tune-self">${T('I tuned it · start lesson', 'Afinei · começar aula')}</button></article>`;
     }
     function edit(form) {
       const g = goal(), fd = new FormData(form), date = String(fd.get('date') || '');
@@ -217,22 +231,52 @@
       if (!title || daysBetween(today(), date) < 0) return;
       const found = catalog.find((s) => sameTitle(s.title, title));
       lookupStarted = false; lookupError = '';
-      state().goal = { title, artist: String(fd.get('artist') || '').trim(), date, minutes: Math.max(5, Math.min(20, Number(fd.get('minutes')) || 5)), skill: { tune: fd.has('tune'), strum: fd.has('strum'), chords: fd.getAll('chord') }, song: found ? parseSong(found) : null, mastery: {}, history: [] };
+      state().goal = { title, artist: String(fd.get('artist') || '').trim(), date, minutes: Math.max(5, Math.min(20, Number(fd.get('minutes')) || 5)), skill: { tune: false, strum: false, chords: [] }, song: found ? parseSong(found) : null, mastery: {}, history: [] };
+      state().onboarded = true; sessionReady = false;
       save(); render();
     }
     async function action(b) {
       if (b.dataset.goalAct === 'pick-song') { selectSong(b.dataset.title, b.dataset.artist || '', b); return; }
       const g = goal(); if (!g) return;
+      if (b.dataset.goalAct === 'tune-play') {
+        if (Player.on) { Player.stop(); b.textContent = '▶ ' + T('Hear GCEA', 'Ouvir GCEA'); return; }
+        await Player.start({ notes: [[0, 0], [1, 0], [2, 0], [3, 0]] }, 72, { click: false });
+        if (Snd.mode === 'synth') document.querySelector('#goal-audio-msg').textContent = T('Recorded sound unavailable; using the synthetic backup.', 'Som gravado indisponível; usando o som sintético de reserva.');
+        b.textContent = '■ ' + T('Stop sound', 'Parar som'); return;
+      }
+      if (b.dataset.goalAct === 'tune-self') {
+        Player.stop(); sessionReady = true;
+        g.history.push({ date: today(), id: 'tuning', title: 'Tune GCEA', result: 'tuned', evidence: 'self' });
+        save(); render(); return;
+      }
+      if (b.dataset.goalAct === 'tune-verify') {
+        const msg = document.querySelector('#goal-audio-msg');
+        if (listening) { listening = false; await Mic.stop(); render(); return; }
+        Player.stop(); const check = makeCheck({ k: 'tune' });
+        try {
+          listening = true; b.textContent = '■ ' + T('Stop microphone', 'Parar microfone');
+          await Mic.start(async (frame) => {
+            if (!listening) return;
+            check.feed(frame);
+            if (!check.done) return;
+            listening = false; await Mic.stop(); sessionReady = true;
+            g.history.push({ date: today(), id: 'tuning', title: 'Tune GCEA', result: 'tuned', evidence: 'mic' });
+            save(); render();
+          }, true);
+        } catch { listening = false; msg.textContent = T('Microphone unavailable. Confirm the tuning yourself below.', 'Microfone indisponível. Confirme a afinação abaixo.'); b.textContent = '🎤 ' + T('Check with microphone', 'Conferir com microfone'); }
+        return;
+      }
       if (b.dataset.goalAct === 'play') {
         const p = plan(g, today()), s = p.next;
         if (Player.on) { Player.stop(); b.textContent = '▶ ' + T('Play-along sound', 'Som para acompanhar'); return; }
-        if (s.kind === 'tune') {
-          Player.start({ notes: [[0, 0], [1, 0], [2, 0], [3, 0]] }, 72, { click: false });
+        if (s.kind === 'open') {
+          await Player.start({ notes: [[0, 0], [1, 0], [2, 0], [3, 0]] }, 72, { click: false });
           b.textContent = '■ ' + T('Stop sound', 'Parar som');
           return;
         }
-        const seq = s.chord ? [s.chord] : s.chords || (s.section != null ? g.song.sections[s.section].bars.flat().filter((c, i, a) => i === 0 || c !== a[i - 1]).slice(0, 8) : g.song.sections.flatMap((x) => x.bars.flat()).filter((c, i, a) => i === 0 || c !== a[i - 1]).slice(0, 8));
-        Player.start({ seq: seq.length ? seq : ['C'], pat: g.song.beats === 3 ? 'D.D.D.' : 'D.D.D.D.' }, Math.min(90, g.song.tempo), { click: true });
+        const seq = s.chord ? [s.chord] : s.chords || (g.song ? (s.section != null ? g.song.sections[s.section].bars.flat().filter((c, i, a) => i === 0 || c !== a[i - 1]).slice(0, 8) : g.song.sections.flatMap((x) => x.bars.flat()).filter((c, i, a) => i === 0 || c !== a[i - 1]).slice(0, 8)) : ['C']);
+        await Player.start({ seq: s.kind === 'downstrum' ? [seq[0] || 'C'] : seq.length ? seq : ['C'], pat: g.song?.beats === 3 ? 'D.D.D.' : 'D.D.D.D.' }, Math.min(90, g.song?.tempo || 72), { click: true });
+        if (Snd.mode === 'synth') document.querySelector('#goal-audio-msg').textContent = T('Recorded sound unavailable; using the synthetic backup.', 'Som gravado indisponível; usando o som sintético de reserva.');
         b.textContent = '■ ' + T('Stop sound', 'Parar som');
       }
       if (b.dataset.goalAct === 'verify' && !listening) {
@@ -266,7 +310,7 @@
         g.history.push({ date: today(), id: s.id, title: s.en, result, evidence: 'self' });
         save(); render();
       }
-      if (b.dataset.goalAct === 'remove' && confirm(T('Replace this song goal? Its check-in history will be removed from this device.', 'Trocar esta meta? O histórico de retornos desta música será apagado deste aparelho.'))) { Player.stop(); if (listening) { listening = false; await Mic.stop(); } lookupStarted = false; lookupError = ''; state().goal = null; save(); render(); }
+      if (b.dataset.goalAct === 'remove' && confirm(T('Replace this song goal? Its check-in history will be archived on this device.', 'Trocar esta meta? O histórico de retornos será arquivado neste aparelho.'))) { Player.stop(); if (listening) { listening = false; await Mic.stop(); } lookupStarted = false; lookupError = ''; (state().previousJourneys ||= []).push({ archivedAt: new Date().toISOString(), goal: g }); state().goal = null; state().onboarded = false; sessionReady = false; save(); render(); }
     }
     function report() {
       const g = goal(); if (!g) return '';
