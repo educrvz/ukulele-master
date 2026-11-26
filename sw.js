@@ -2,7 +2,7 @@
    Strategy: network first for our own files (so a deploy shows up on the next online visit without any version bump),
    falling back to the cache when offline or slow. Fonts are cache first. Everything is precached on install,
    so the app works offline even if it was opened only once. */
-const CACHE = 'uke-master-shell-v3';
+const CACHE = 'uke-master-shell-v4';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/migrate.js', 'js/dsp.js', 'js/data.js', 'js/diagrams.js', 'js/audio.js', 'js/mic.js', 'js/ui.js', 'js/pwa.js',
