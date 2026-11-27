@@ -1,5 +1,13 @@
 # Progress log
 
+## 2026-11-27 — Hands-free automatic chord-change counting via microphone (Gemini)
+- **Changed:** Replaced manual tap-after-every-switch counting in both **One-minute changes** (Tools drawer) and the **30s Bonus Jam** (`js/song-goal.js`) with hands-free microphone detection (`ChangesCheck` in `js/mic.js`).
+  - `ChangesCheck(a, b)` listens to alternating strums between chord A and chord B, counts only genuine switches (`A → B` or `B → A`), ignores repeated strums of the same chord, desk taps, room noise, talking, and unrelated chords, and highlights the chord just heard (green) and next target chord (amber) live alongside a mic level bar.
+  - Mic-counted records save `evidence: 'mic'` into existing `S.changes` without touching or resetting any `uke-master-v1` progress, mastery, check-in history, or `previousJourneys`. A quiet `No mic? Count manually` fallback remains available if the mic is blocked (marked `self`).
+- **Why:** Edu caught via Scrawl that tapping the screen after each chord switch while holding a ukulele breaks the exercise — the app should listen and count automatically.
+- **Checks:** `node --check js/*.js sw.js`; `node tests/listening.test.js` (40/40, including 7 new `ChangesCheck` tests for C⇄G, repeated same-chord filtering, fast 0.55 s C⇄F, close Am⇄F pair, talking, desk taps, and unrelated Dm/Bb chords); `node tests/song-api.test.js`; `node tests/migrate.test.js`; `python3 tests/smoke.py` (55/55, including hands-free Tools UI check and v3→v4 history preservation); inspected phone screenshot of the updated Tools chord-change card; `git diff --check` clean.
+- **Unfinished / next step:** Real-ukulele microphone calibration on Edu's phone (if real strums are occasionally missed or ambiguous on close pairs, `CHORD_MIN` and the `0.04` pair margin in `js/mic.js` are the first two numbers to tune with a short WAV recording).
+
 ## 2026-11-26 — Version 4: single-screen focus, live daily tuner & quiet gamification (Gemini)
 - **Changed:** Redesigned the main experience into a single-screen, zero-scroll `100dvh` stage (`Daily Tuner → Lesson → Post-Check-in Reward`) on local branch `feat/single-screen-focus-v4`, documented in `docs/decisions/0004-single-screen-focus-and-quiet-gamification.md`.
   - **Live daily tuner front door:** Opens automatically once per calendar day (`goal.tunedOn !== today()`), with four tappable `G (Sol)`, `C (Dó)`, `E (Mi)`, `A (Lá)` string pads playing individual CC0 FreePats notes (`Snd.string`), a live pitch needle gauge and mic level bar (fixing the v3 bug where Today's mic tuning had no visual feedback), and a quiet `Already in tune →` self-confirm link. Top-bar tuning-fork icon reopens the tuner anytime.

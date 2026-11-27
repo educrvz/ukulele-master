@@ -108,5 +108,41 @@ for (const [name, s] of [
   check('talking does not pass a single-note check', !c.pass, `reached ${c.i}/4`);
 }
 
+// ── hands-free alternating chord-change counter (30s bonus & 60s changes)
+{
+  const altCG = ['C', 'G', 'C', 'G', 'C', 'G', 'C'].map((chord, i) => ({ at: 1.5 + i * 0.9, chord }));
+  let c = run({ k: 'changes', pair: ['C', 'G'] }, H.mix(H.strums(9, altCG), H.noise(9, 0.003)));
+  c.flush();
+  check('alternating C and G counts 6 switches automatically', c.count === 6 && c.last === 'C' && c.next === 'G', `counted ${c.count}`);
+
+  const repeats = ['C', 'C', 'C', 'G', 'G', 'C', 'C'].map((chord, i) => ({ at: 1.5 + i * 0.85, chord }));
+  c = run({ k: 'changes', pair: ['C', 'G'] }, H.mix(H.strums(9, repeats), H.noise(9, 0.003)));
+  c.flush();
+  check('repeated strums on the same chord only count actual switches (2)', c.count === 2, `counted ${c.count}`);
+
+  const fastCF = ['C', 'F', 'C', 'F', 'C', 'F', 'C', 'F', 'C'].map((chord, i) => ({ at: 1.5 + i * 0.55, chord }));
+  c = run({ k: 'changes', pair: ['C', 'F'] }, H.mix(H.strums(8, fastCF), H.noise(8, 0.003)));
+  c.flush();
+  check('fast alternating C and F (0.55 s apart) counts 8 switches', c.count === 8, `counted ${c.count}`);
+
+  const closePair = ['Am', 'F', 'Am', 'F', 'Am'].map((chord, i) => ({ at: 1.5 + i * 0.9, chord }));
+  c = run({ k: 'changes', pair: ['Am', 'F'] }, H.mix(H.strums(7, closePair), H.noise(7, 0.003)));
+  c.flush();
+  check('close chord pair Am and F counts 4 switches', c.count === 4, `counted ${c.count}`);
+
+  c = run({ k: 'changes', pair: ['C', 'G'] }, H.mix(H.voice(15, 0.05), H.noise(15, 0.003)));
+  c.flush();
+  check('talking does not rack up chord changes', c.count <= 1, `counted ${c.count}`);
+
+  c = run({ k: 'changes', pair: ['C', 'G'] }, H.mix(H.taps(12, every(10, 0.9), 0.3), H.noise(12, 0.003)));
+  c.flush();
+  check('desk taps count 0 chord changes', c.count === 0, `counted ${c.count}`);
+
+  const wrong = ['Dm', 'Bb', 'Dm', 'Bb'].map((chord, i) => ({ at: 1.5 + i * 0.9, chord }));
+  c = run({ k: 'changes', pair: ['C', 'G'] }, H.mix(H.strums(6, wrong), H.noise(6, 0.003)));
+  c.flush();
+  check('unrelated chords (Dm/Bb) do not count as C/G changes', c.count === 0, `counted ${c.count}`);
+}
+
 console.log(fails ? `\n${fails} failure(s)` : '\nAll listening checks passed.');
 process.exit(fails ? 1 : 0);

@@ -118,8 +118,10 @@ with sync_playwright() as p:
     check('Portuguese lesson view', 'batida suave' in pg.locator('.lesson-title').inner_text())
     pg.click('#lang')  # back to EN
 
-    # 6. Drawer: Diary, Dark Theme, Edit minutes
+    # 6. Drawer: Tools (hands-free chord changes), Diary, Dark Theme, Edit minutes
     pg.click('#top-menu')
+    pg.click('[data-act="sheettab"][data-tab="tools"]')
+    check('one-minute changes uses hands-free mic start (not tap-every-change pad)', pg.locator('#cgstart').count() == 1 and pg.locator('#cgpad').count() == 0)
     pg.click('[data-act="sheettab"][data-tab="diary"]')
     check('diary shows song check-ins', 'Hold the ukulele' in pg.locator('#sheet .log').inner_text())
     pg.click('[data-act="theme"][data-t="dark"]')
