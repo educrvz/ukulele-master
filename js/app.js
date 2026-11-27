@@ -35,12 +35,13 @@
 
   const FINGERS = () => T('1 index · 2 middle · 3 ring · 4 little. Numbers inside dots are fingers, not frets.', '1 indicador · 2 médio · 3 anelar · 4 mínimo. Os números nas bolinhas são dedos, não casas.');
 
-  /* Microphone level bar helper shared between stage and drawer tuner. */
-  const levelBar = () => `<div class="lvl" aria-hidden="true"><i id="lvl"></i><b id="lvlfloor"></b><span>${T('microphone level', 'nível do microfone')}</span></div>`;
+  /* Microphone level bar helper shared between stage and drawer tools. */
+  const levelBar = (id) => `<div class="lvl" aria-hidden="true"><i id="${id || 'lvl'}"></i><b id="${id ? id + 'floor' : 'lvlfloor'}"></b><span>${T('microphone level', 'nível do microfone')}</span></div>`;
   const dbPct = (x) => Math.max(0, Math.min(100, ((20 * Math.log10(Math.max(x, 1e-5)) + 66) / 60) * 100));
-  function showLevel(fr) {
+  function showLevel(fr, id) {
     const scope = ($('#sheet')?.open ? $('#sheet') : document);
-    const bar = $('#lvl', scope), fl = $('#lvlfloor', scope);
+    const barId = id || 'lvl';
+    const bar = $('#' + barId, scope), fl = $('#' + barId + 'floor', scope);
     if (!bar) return;
     bar.style.width = (fr ? dbPct(fr.rms) : 0) + '%';
     bar.classList.toggle('hot', !!fr && fr.rms > Math.max(0.006, 2.5 * (fr.floor || 0)));
@@ -165,15 +166,24 @@
     if (sheetTab === 'diary') loadRecs();
   }
 
+  function cgReadout(a, b) {
+    if (!cg) return T(`Press Start, then switch between ${CHORDS[a].sym} and ${CHORDS[b].sym} — the mic counts automatically.`, `Toque em Começar e alterne entre ${CHORDS[a].sym} e ${CHORDS[b].sym} — o mic conta sozinho.`);
+    if (cg.manual) return T('Tap +1 after each clean change (manual mode).', 'Toque em +1 a cada troca limpa (modo manual).');
+    if (!cg.check?.last) return T(`Listening… play ${CHORDS[a].sym} or ${CHORDS[b].sym} to start`, `Ouvindo… toque ${CHORDS[a].sym} ou ${CHORDS[b].sym} para começar`);
+    return T(`Heard ${CHORDS[cg.check.last].sym} ✓ · now play ${CHORDS[cg.check.next].sym}`, `Ouvi ${CHORDS[cg.check.last].sym} ✓ · agora toque ${CHORDS[cg.check.next].sym}`);
+  }
+
   function toolsSheet() {
     const sel = V.chord || 'G';
     const known = Object.keys(CHORDS);
     const a = V.cgA || 'C', b = V.cgB || 'G', rec = (S.changes || {})[[a, b].sort().join(':')];
     const opts = (cur) => known.filter((id) => id !== 'Chi').map((id) => `<option value="${id}"${id === cur ? ' selected' : ''}>${CHORDS[id].label}</option>`).join('');
+    const cgOn = Boolean(cg);
+    const cgLast = cg?.check?.last || null, cgNext = cg?.check?.next || null;
     return `<article class="card compact-card">
         <h3>${icon('mic')} ${T('Tuner', 'Afinador')}</h3>
         <div id="live">${tunerHTML(makeCheck({ k: 'tune' }))}</div>
-        ${levelBar()}
+        ${levelBar('lvl')}
         <p style="margin-top:10px"><button type="button" class="btn sea sm" data-act="tuner" id="tunerb">${icon('mic')} ${T('Start tuner', 'Ligar afinador')}</button></p>
       </article>
       <article class="card compact-card">
@@ -185,12 +195,24 @@
       </article>
       <article class="card compact-card">
         <h3>${icon('swap')} ${T('One-minute changes', 'Trocas em um minuto')}</h3>
-        <p class="hint">${T('Tap after each clean switch for 60 s (self-counted).', 'Toque a cada troca limpa por 60 s (contagem própria).')}</p>
-        <div class="cg-pick"><select id="cgA" aria-label="${T('First chord', 'Primeiro acorde')}">${opts(a)}</select><span>${icon('swap')}</span><select id="cgB" aria-label="${T('Second chord', 'Segundo acorde')}">${opts(b)}</select></div>
-        ${minis([a, b])}
-        <p></p>
-        <button type="button" class="pad" data-act="cgtap" id="cgpad"><span class="left" id="cgleft">60 s</span><b id="cgn">0</b><small id="cglbl">${T('Tap to start', 'Toque para começar')}</small></button>
-        <p class="hint" id="cgmsg" style="margin-top:8px">${rec ? `${T('Best', 'Recorde')}: <b>${rec.best}</b> · ${T('Last', 'Última')}: ${rec.last} (${niceDate(rec.on)})` : T('No record yet for this pair.', 'Ainda sem recorde para este par.')}</p>
+        <p class="hint">${T('Keep both hands on the ukulele — the microphone hears each clean switch and counts for 60 s.', 'Fique com as duas mãos no ukulele — o microfone ouve cada troca limpa e conta por 60 s.')}</p>
+        <div class="cg-pick"><select id="cgA"${cgOn ? ' disabled' : ''} aria-label="${T('First chord', 'Primeiro acorde')}">${opts(a)}</select><span>${icon('swap')}</span><select id="cgB"${cgOn ? ' disabled' : ''} aria-label="${T('Second chord', 'Segundo acorde')}">${opts(b)}</select></div>
+        <div class="mini-row">${[a, b].map((c) => `<button type="button" class="mini${cgLast === c ? ' heard' : cgNext === c ? ' target' : ''}" data-cg-chord="${c}" data-act="peek" data-id="${c}" aria-label="${CHORDS[c].label}">${DG.chordChart(CHORDS[c])}<span>${CHORDS[c].label}</span></button>`).join('')}</div>
+        <div class="chg-board${cgOn ? ' run' : ''}" id="cgboard">
+          <span class="left" id="cgleft">${cg ? cg.left : 60} s</span>
+          <b id="cgn">${cg ? cg.n : 0}</b>
+          <small id="cglbl">${cgReadout(a, b)}</small>
+        </div>
+        ${!(cg && cg.manual) ? `<div class="lvl-wrap${cgOn ? ' on' : ''}">${levelBar('cglvl')}</div>` : ''}
+        <div class="cg-actions">
+          ${cg && cg.manual
+            ? `<button type="button" class="btn big" data-act="cgmanualtap">${T('+1 Clean switch', '+1 Troca limpa')}</button>`
+            : `<button type="button" class="btn big${cgOn ? ' listening' : ''}" data-act="cgstart" id="cgstart">
+                ${cgOn ? `${icon('stop')} ${T('Finish & save', 'Encerrar e salvar')}` : `${icon('mic')} ${T('Start listening (60 s)', 'Começar a ouvir (60 s)')}`}
+              </button>`}
+          ${!cgOn ? `<button type="button" class="link-btn" data-act="cgmanual">${T('No mic? Count manually', 'Sem mic? Contar na mão')}</button>` : ''}
+        </div>
+        <p class="hint" id="cgmsg" style="margin-top:6px">${rec ? `${T('Best', 'Recorde')}: <b>${rec.best}</b>${rec.evidence === 'mic' ? ' 🎤' : ''} · ${T('Last', 'Última')}: ${rec.last} (${niceDate(rec.on)})` : T('No record yet for this pair.', 'Ainda sem recorde para este par.')}</p>
       </article>
       <h4 class="sub">${T('Chord library', 'Biblioteca de acordes')}</h4>
       <div class="chips">${known.map((id) => `<button type="button" class="chip${id === sel ? ' on' : ''}" data-act="pick" data-id="${id}">${CHORDS[id].sym}${CHORDS[id].tag ? '↑' : ''}</button>`).join('')}</div>
@@ -257,40 +279,93 @@
     }
   }
 
-  function cgTap() {
-    const scope = $('#sheet');
-    const pad = $('#cgpad', scope);
-    UI.buzz(8);
-    if (!cg) {
-      Player.stop();
-      cg = { n: 0, left: 60, a: V.cgA || 'C', b: V.cgB || 'G' };
-      pad.classList.add('run'); $('#cgn', scope).textContent = '0'; $('#cglbl', scope).textContent = T('Tap after each change', 'Toque a cada troca');
-      $$('#cgA,#cgB', scope).forEach((s) => (s.disabled = true));
+  async function cgStart() {
+    if (cg) { await cgEnd(); return; }
+    Player.stop();
+    if (Mic.on) { await Mic.stop(); chk = null; }
+    const a = V.cgA || 'C', b = V.cgB || 'G';
+    const check = makeCheck({ k: 'changes', pair: [a, b] });
+    cg = { n: 0, left: 60, a, b, manual: false, check, int: null };
+    renderSheet();
+    let prevCount = 0;
+    try {
+      await Mic.start((fr) => {
+        if (!cg?.check) return;
+        cg.check.feed(fr);
+        showLevel(fr, 'cglvl');
+        const scope = $('#sheet');
+        if (cg.check.count !== prevCount) {
+          prevCount = cg.check.count;
+          cg.n = prevCount;
+          UI.buzz(10);
+          const cnt = $('#cgn', scope);
+          if (cnt) { cnt.textContent = prevCount; cnt.classList.remove('pop-num'); void cnt.offsetWidth; cnt.classList.add('pop-num'); }
+        }
+        const lbl = $('#cglbl', scope);
+        if (lbl) lbl.textContent = cgReadout(a, b);
+        $$('[data-cg-chord]', scope).forEach((el) => {
+          el.classList.toggle('heard', cg.check.last === el.dataset.cgChord);
+          el.classList.toggle('target', cg.check.next === el.dataset.cgChord);
+        });
+      }, false);
       cg.int = setInterval(() => {
+        if (!cg) return;
         cg.left--;
-        const l = $('#cgleft', scope); if (!l) { clearInterval(cg.int); cg = null; return; }
+        const l = $('#cgleft', $('#sheet')); if (!l) { clearInterval(cg.int); cg = null; return; }
         l.textContent = cg.left + ' s';
         if (cg.left <= 0) cgEnd();
       }, 1000);
-      return;
+    } catch {
+      cg = null;
+      renderSheet();
+      const msg = $('#cgmsg', $('#sheet'));
+      if (msg) msg.textContent = T('Microphone blocked. Allow mic access or use "Count manually".', 'Microfone bloqueado. Permita o microfone ou use "Contar na mão".');
     }
-    cg.n++; $('#cgn', scope).textContent = cg.n;
   }
 
-  function cgEnd() {
-    clearInterval(cg.int);
-    const { n, a, b } = cg, key = [a, b].sort().join(':'), old = (S.changes || {})[key];
+  function cgManualStart() {
+    stopTools();
+    const a = V.cgA || 'C', b = V.cgB || 'G';
+    cg = { n: 0, left: 60, a, b, manual: true, check: null, int: null };
+    renderSheet();
+    cg.int = setInterval(() => {
+      if (!cg) return;
+      cg.left--;
+      const l = $('#cgleft', $('#sheet')); if (!l) { clearInterval(cg.int); cg = null; return; }
+      l.textContent = cg.left + ' s';
+      if (cg.left <= 0) cgEnd();
+    }, 1000);
+  }
+
+  function cgManualTap() {
+    if (!cg?.manual) return;
+    UI.buzz(8);
+    cg.n++;
+    const cnt = $('#cgn', $('#sheet'));
+    if (cnt) cnt.textContent = cg.n;
+  }
+
+  async function cgEnd() {
+    if (!cg) return;
+    if (cg.int) clearInterval(cg.int);
+    if (cg.check) cg.check.flush();
+    const n = cg.check ? cg.check.count : cg.n;
+    const evidence = cg.manual ? 'self' : 'mic';
+    const { a, b } = cg, key = [a, b].sort().join(':'), old = (S.changes || {})[key];
     cg = null;
+    if (Mic.on) await Mic.stop();
     const best = Math.max(n, old ? old.best : 0), isBest = n > 0 && (!old || n > old.best);
     if (n > 0) {
       S.changes ||= {};
-      S.changes[key] = { best, last: n, on: today() };
+      S.changes[key] = { best, last: n, on: today(), evidence };
       save();
     }
     Snd.click(0, true); UI.buzz([30, 60, 30]);
     if (isBest) UI.confetti();
     renderSheet();
-    toast(n ? (isBest ? T(`New record: ${n} changes!`, `Novo recorde: ${n} trocas!`) : T(`${n} changes. Best: ${best}.`, `${n} trocas. Recorde: ${best}.`)) : T('No changes counted.', 'Nenhuma troca contada.'));
+    toast(n
+      ? (isBest ? T(`New record: ${n} changes!`, `Novo recorde: ${n} trocas!`) : T(`${n} changes. Best: ${best}.`, `${n} trocas. Recorde: ${best}.`))
+      : T('No changes heard.', 'Nenhuma troca ouvida.'));
   }
 
   function syncMetro(on) {
@@ -336,7 +411,9 @@
       if (Player.on) { Player.stop(); syncMetro(false); }
     },
     pick(b) { V.chord = b.dataset.id; stopTools(); renderSheet(); },
-    cgtap: cgTap,
+    cgstart: cgStart,
+    cgmanual: cgManualStart,
+    cgmanualtap: cgManualTap,
     async tuner() {
       const scope = $('#sheet'), b = $('#tunerb', scope);
       const lab = (on) => (on ? `${icon('stop')} ${T('Stop', 'Parar')}` : `${icon('mic')} ${T('Start tuner', 'Ligar afinador')}`);

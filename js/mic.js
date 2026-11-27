@@ -178,11 +178,56 @@
   };
   ChordsCheck.prototype.progress = function () { return (this.i + (this.hits[this.i] > 0 ? 1 : 0)) / this.seq.length; };
 
+  /* Hands-free alternating chord-change counter for timed drills (30s bonus & 60s changes).
+     Counts each clean switch A → B or B → A automatically; ignores repeated strums of the same chord,
+     desk taps, room noise, talking, and unrelated chords. */
+  function ChangesCheck(a, b) {
+    this.k = 'changes'; this.pair = [a, b];
+    this.count = 0; this.last = null; this.next = null; this.heard = null;
+    this.rejected = 0; this.pending = null; this.done = false; this.pass = false;
+    this.cands = [a, b].map((id) => ({ id, t: DSP.chordTemplate(U.CHORDS[id].midi) }));
+  }
+  ChangesCheck.prototype.settle = function () {
+    const p = this.pending; this.pending = null;
+    if (!p || p.n < 2) return;
+    const after = p.rms / p.n / p.peak, rings = after >= 0.35 && after <= 2.5;
+    if (!rings) { this.rejected++; return; }
+    const s0 = DSP.cosine(p.acc, this.cands[0].t), s1 = DSP.cosine(p.acc, this.cands[1].t);
+    const best = s0 >= s1 ? this.cands[0].id : this.cands[1].id;
+    const bs = Math.max(s0, s1), other = Math.min(s0, s1);
+    if (bs < CHORD_MIN || bs - other < 0.04) { this.rejected++; return; }
+    this.heard = best;
+    if (this.last === null) {
+      this.last = best;
+      this.next = best === this.pair[0] ? this.pair[1] : this.pair[0];
+      return;
+    }
+    if (best !== this.last) {
+      this.count++;
+      this.last = best;
+      this.next = best === this.pair[0] ? this.pair[1] : this.pair[0];
+    }
+  };
+  ChangesCheck.prototype.feed = function (fr) {
+    if (this.done) return;
+    if (fr.onset) { this.settle(); this.pending = { t: fr.t, peak: fr.rms, acc: new Float32Array(12), n: 0, rms: 0 }; return; }
+    const p = this.pending;
+    if (!p) return;
+    if (fr.t - p.t < 65) { p.peak = Math.max(p.peak, fr.rms); return; }
+    if (fr.rms <= 0.004) return;
+    const c = fr.chroma();
+    for (let i = 0; i < 12; i++) p.acc[i] += c[i];
+    p.rms += fr.rms;
+    if (++p.n >= 4) this.settle();
+  };
+  ChangesCheck.prototype.flush = function () { this.settle(); };
+
   function makeCheck(spec) {
     if (spec.k === 'tune') return new TuneCheck();
     if (spec.k === 'strings') return new NotesCheck(U.CHORDS[spec.chord].midi);
     if (spec.k === 'notes') return new NotesCheck(spec.seq.map(([s, f]) => U.OPEN[s] + f));
     if (spec.k === 'strum') return new StrumCheck(spec.n, spec.even, spec.chords);
+    if (spec.k === 'changes') return new ChangesCheck(spec.pair[0], spec.pair[1]);
     return new ChordsCheck(spec.seq);
   }
 

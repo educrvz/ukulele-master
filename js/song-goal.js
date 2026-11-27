@@ -197,6 +197,7 @@
       liveCheck = null;
       liveKind = null;
       if (bonus?.int) { clearInterval(bonus.int); bonus.int = null; }
+      if (bonus) { bonus.running = false; bonus.check = null; }
       Player.stop();
     }
 
@@ -591,11 +592,11 @@
           </div>
           ${weekRhythmMarkup(mom)}
           ${bonusDone
-            ? `<div class="bonus-done">⚡ ${T(`Bonus done: ${r.bonusScore} switches`, `Bônus feito: ${r.bonusScore} trocas`)}${r.bonusBest ? ' · ' + T('New best!', 'Novo recorde!') : ''}</div>`
+            ? `<div class="bonus-done">⚡ ${T(`Bonus done: ${r.bonusScore} switches`, `Bônus feito: ${r.bonusScore} trocas`)}${r.bonusEvidence === 'mic' ? ' · ' + T('Mic verified', 'Verificado por mic') : ''}${r.bonusBest ? ' · ' + T('New best!', 'Novo recorde!') : ''}</div>`
             : r.showBonus && r.bonusPair
               ? `<button type="button" class="bonus-card" data-goal-act="start-bonus">
                   <span class="bonus-ic">${icon('bolt')}</span>
-                  <span class="bonus-txt"><b>${T('30s Bonus Jam', 'Desafio Relâmpago · 30s')}</b><small>${esc(CHORDS[r.bonusPair[0]].sym)} ⇄ ${esc(CHORDS[r.bonusPair[1]].sym)} · ${T('optional rapid switches', 'trocas rápidas opcionais')}</small></span>
+                  <span class="bonus-txt"><b>${T('30s Bonus Jam', 'Desafio Relâmpago · 30s')}</b><small>${esc(CHORDS[r.bonusPair[0]].sym)} ⇄ ${esc(CHORDS[r.bonusPair[1]].sym)} · ${T('hands-free mic counter', 'contagem automática no mic')}</small></span>
                   <span class="bonus-go">→</span>
                 </button>`
               : ''}
@@ -610,29 +611,49 @@
       </section>`;
     }
 
-    /* ───────── State 4: Inline 30s Bonus Chord-Change Jam */
+    /* ───────── State 4: Inline 30s Hands-Free Bonus Chord-Change Jam */
+    function bonusReadout(b) {
+      const [a, c] = b.pair;
+      if (!b.running) return T(`Press Start, then switch between ${CHORDS[a].sym} and ${CHORDS[c].sym} — the mic counts automatically.`, `Toque em Começar e alterne entre ${CHORDS[a].sym} e ${CHORDS[c].sym} — o microfone conta sozinho.`);
+      if (b.manual) return T('Tap the counter after each clean switch (manual mode).', 'Toque no contador a cada troca limpa (modo manual).');
+      const chk = b.check;
+      if (!chk?.last) return T(`Listening… strum ${CHORDS[a].sym} or ${CHORDS[c].sym} to start`, `Ouvindo… toque ${CHORDS[a].sym} ou ${CHORDS[c].sym} para começar`);
+      return T(`Heard ${CHORDS[chk.last].sym} ✓ · now play ${CHORDS[chk.next].sym}`, `Ouvi ${CHORDS[chk.last].sym} ✓ · agora toque ${CHORDS[chk.next].sym}`);
+    }
+
     function bonusStage(g, p) {
       const [a, b] = bonus.pair;
       const key = [a, b].sort().join(':');
       const rec = (state().changes || {})[key];
+      const last = bonus.check?.last || null;
+      const next = bonus.check?.next || null;
       return `<section class="stage stage-bonus">
         ${songMapStrip(g, p, p.next.id)}
         <div class="stage-body center-stage">
           <div class="stage-head">
             <p class="eyebrow">⚡ ${T('30s Bonus Jam', 'Desafio Relâmpago · 30s')}</p>
             <h2>${esc(CHORDS[a].label)} ⇄ ${esc(CHORDS[b].label)}</h2>
-            <p class="cue">${T('Tap after each clean switch. Self-counted.', 'Toque a cada troca limpa. Contagem própria.')}</p>
+            <p class="cue">${T('Hands on the ukulele — the microphone counts every clean switch.', 'Mãos no ukulele — o microfone conta cada troca limpa.')}</p>
           </div>
-          <div class="mini-row bonus-minis">${[a, b].map((c) => `<button type="button" class="mini" data-act="peek" data-id="${c}">${diagrams.chordChart(CHORDS[c])}<span>${CHORDS[c].label}</span></button>`).join('')}</div>
-          <button type="button" class="pad${bonus.running ? ' run' : ''}" data-goal-act="bonus-tap" id="bonus-pad">
+          <div class="mini-row bonus-minis">${[a, b].map((c) => `<button type="button" class="mini${last === c ? ' heard' : next === c ? ' target' : ''}" data-bonus-chord="${c}" data-act="peek" data-id="${c}">${diagrams.chordChart(CHORDS[c])}<span>${CHORDS[c].label}</span></button>`).join('')}</div>
+          <div class="chg-board${bonus.running ? ' run' : ''}" id="bonus-board"${bonus.manual && bonus.running ? ' data-goal-act="bonus-manual-tap" role="button" tabindex="0"' : ''}>
             <span class="left" id="bonus-left">${bonus.left} s</span>
             <b id="bonus-n">${bonus.n}</b>
-            <small id="bonus-lbl">${bonus.running ? T('Tap each clean change', 'Toque a cada troca limpa') : T('Tap to start 30s', 'Toque para iniciar 30s')}</small>
-          </button>
-          <p class="hint">${rec ? `${T('Best', 'Recorde')}: <b>${rec.best}</b>` : T('No record yet for this pair.', 'Sem recorde ainda para este par.')}</p>
+            <small id="bonus-lbl">${bonusReadout(bonus)}</small>
+          </div>
+          ${!bonus.manual ? `<div class="lvl-wrap${bonus.running ? ' on' : ''}"><div class="lvl" aria-hidden="true"><i id="lvl"></i><b id="lvlfloor"></b><span>${T('microphone level', 'nível do microfone')}</span></div></div>` : ''}
+          <p class="hint" id="bonus-msg" role="status">${bonus.error || (rec ? `${T('Best', 'Recorde')}: <b>${rec.best}</b>${rec.evidence === 'mic' ? ' 🎤' : ''}` : T('No record yet for this pair.', 'Sem recorde ainda para este par.'))}</p>
         </div>
         <footer class="stage-dock">
-          <button type="button" class="link-btn" data-goal-act="skip-bonus">${T('Back to summary', 'Voltar ao resumo')}</button>
+          ${bonus.manual && bonus.running
+            ? `<button type="button" class="btn big" data-goal-act="bonus-manual-tap">${T('+1 Clean switch', '+1 Troca limpa')}</button>`
+            : `<button type="button" class="btn big${bonus.running ? ' listening' : ''}" data-goal-act="bonus-start">
+                ${bonus.running ? `${icon('stop')} ${T('Finish now', 'Encerrar agora')}` : `${icon('mic')} ${T('Start listening (30 s)', 'Começar a ouvir (30 s)')}`}
+              </button>`}
+          <div class="dock-links">
+            ${!bonus.running && !bonus.manual ? `<button type="button" class="link-btn" data-goal-act="bonus-manual">${T('No mic? Count manually', 'Sem mic? Contar na mão')}</button><span class="dot-sep" aria-hidden="true">·</span>` : ''}
+            <button type="button" class="link-btn" data-goal-act="skip-bonus">${T('Back to summary', 'Voltar ao resumo')}</button>
+          </div>
         </footer>
       </section>`;
     }
@@ -804,10 +825,14 @@
       }
     }
 
-    function finishBonus() {
+    async function finishBonus() {
       if (!bonus) return;
       if (bonus.int) clearInterval(bonus.int);
-      const { n, pair } = bonus;
+      if (bonus.check) bonus.check.flush();
+      const n = bonus.check ? bonus.check.count : bonus.n;
+      const evidence = bonus.manual ? 'self' : 'mic';
+      const { pair } = bonus;
+      if (listening && liveKind === 'bonus') { listening = false; liveKind = null; await Mic.stop(); }
       const key = [...pair].sort().join(':');
       const S = state();
       S.changes ||= {};
@@ -815,11 +840,11 @@
       const best = Math.max(n, old ? old.best : 0);
       const isBest = n > 0 && (!old || n > old.best);
       if (n > 0) {
-        S.changes[key] = { best, last: n, on: today() };
+        S.changes[key] = { best, last: n, on: today(), evidence };
         save();
       }
       bonus = null;
-      if (rewardState) { rewardState.bonusScore = n; rewardState.bonusBest = isBest; }
+      if (rewardState) { rewardState.bonusScore = n; rewardState.bonusBest = isBest; rewardState.bonusEvidence = evidence; }
       Snd.click(0, true);
       if (window.UI) { UI.buzz([30, 60, 30]); if (isBest) UI.confetti(); }
       render();
@@ -1070,29 +1095,73 @@
       if (act === 'start-bonus') {
         if (!rewardState?.bonusPair) return;
         stopAudioAndMic();
-        bonus = { pair: rewardState.bonusPair, left: 30, n: 0, running: false, int: null };
+        bonus = { pair: rewardState.bonusPair, left: 30, n: 0, running: false, manual: false, check: null, error: '', int: null };
         render(); return;
       }
 
-      if (act === 'bonus-tap') {
+      if (act === 'bonus-start') {
         if (!bonus) return;
-        if (window.UI) UI.buzz(8);
-        if (!bonus.running) {
-          bonus.running = true; bonus.n = 0; bonus.left = 30;
-          const pad = document.querySelector('#bonus-pad');
-          if (pad) pad.classList.add('run');
-          const lbl = document.querySelector('#bonus-lbl');
-          if (lbl) lbl.textContent = T('Tap each clean change', 'Toque a cada troca limpa');
+        if (bonus.running) { await finishBonus(); return; }
+        Player.stop();
+        const check = makeCheck({ k: 'changes', pair: bonus.pair });
+        bonus.check = check; bonus.n = 0; bonus.left = 30; bonus.error = ''; bonus.manual = false;
+        try {
+          listening = true; liveKind = 'bonus'; bonus.running = true;
+          render();
+          let prevCount = 0;
+          await Mic.start((frame) => {
+            if (!listening || liveKind !== 'bonus' || !bonus?.check) return;
+            bonus.check.feed(frame);
+            if (showLevel) showLevel(frame);
+            if (bonus.check.count !== prevCount) {
+              prevCount = bonus.check.count;
+              bonus.n = prevCount;
+              if (window.UI) UI.buzz(10);
+              const cnt = document.querySelector('#bonus-n');
+              if (cnt) { cnt.textContent = prevCount; cnt.classList.remove('pop-num'); void cnt.offsetWidth; cnt.classList.add('pop-num'); }
+            }
+            const lbl = document.querySelector('#bonus-lbl');
+            if (lbl) lbl.textContent = bonusReadout(bonus);
+            document.querySelectorAll('[data-bonus-chord]').forEach((el) => {
+              el.classList.toggle('heard', bonus.check.last === el.dataset.bonusChord);
+              el.classList.toggle('target', bonus.check.next === el.dataset.bonusChord);
+            });
+          }, false);
           bonus.int = setInterval(() => {
             if (!bonus) return;
             bonus.left--;
             const el = document.querySelector('#bonus-left');
-            if (!el) { clearInterval(bonus.int); bonus = null; return; }
+            if (!el) { clearInterval(bonus.int); bonus.int = null; return; }
             el.textContent = `${bonus.left} s`;
             if (bonus.left <= 0) finishBonus();
           }, 1000);
-          return;
+        } catch {
+          listening = false; liveKind = null; bonus.running = false; bonus.check = null;
+          bonus.error = T('Microphone unavailable. Allow mic access or tap "Count manually" below.', 'Microfone indisponível. Permita o microfone ou toque em "Contar na mão".');
+          render();
         }
+        return;
+      }
+
+      if (act === 'bonus-manual') {
+        if (!bonus) return;
+        stopAudioAndMic();
+        bonus.manual = true; bonus.running = true; bonus.n = 0; bonus.left = 30; bonus.error = '';
+        render();
+        bonus.int = setInterval(() => {
+          if (!bonus) return;
+          bonus.left--;
+          const el = document.querySelector('#bonus-left');
+          if (!el) { clearInterval(bonus.int); bonus.int = null; return; }
+          el.textContent = `${bonus.left} s`;
+          if (bonus.left <= 0) finishBonus();
+        }, 1000);
+        return;
+      }
+
+      if (act === 'bonus-manual-tap') {
+        if (!bonus?.running || !bonus.manual) return;
+        if (window.UI) UI.buzz(8);
         bonus.n++;
         const cnt = document.querySelector('#bonus-n');
         if (cnt) cnt.textContent = bonus.n;
@@ -1101,6 +1170,7 @@
 
       if (act === 'skip-bonus') {
         if (bonus?.int) clearInterval(bonus.int);
+        if (listening && liveKind === 'bonus') { listening = false; liveKind = null; await Mic.stop(); }
         bonus = null;
         render(); return;
       }
